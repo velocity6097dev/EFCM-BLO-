@@ -9,10 +9,95 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         .alert-box {
-            background: #fff1f2; color: var(--danger-dark); border: 1px solid #fecaca;
+            background: #fff7ed; color: #9a3412; border: 1px solid #fb923c;
             padding: 15px; border-radius: 8px; margin-bottom: 20px;
             display: flex; align-items: flex-start; gap: 15px;
         }
+        .inv-name-row {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        }
+        .inv-name-row input {
+            padding: 9px 12px;
+            border: 1px solid var(--border, #d1d5db);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+        }
+        .inv-name-row .sep {
+            font-size: 1.2rem; color: #aaa; font-weight: 300; line-height: 1;
+        }
+        .inv-preview {
+            padding: 9px 14px;
+            background: var(--surface-2, #f8fafc);
+            border: 1px dashed var(--border, #d1d5db);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #555;
+            white-space: nowrap;
+        }
+        .leftover-badge {
+            display: none;
+            background: #dcfce7; color: #166534;
+            border: 1px solid #86efac; border-radius: 8px;
+            padding: 7px 14px; font-size: 0.88rem; font-weight: 600;
+            margin-top: 10px; align-items: center; gap: 6px;
+        }
+
+        /* ── Leftover Modal ───────────────────────── */
+        .leftover-modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 9999;
+            display: none;
+            align-items: center; justify-content: center;
+            padding: 16px;
+        }
+        .leftover-modal-overlay.open { display: flex; }
+        .leftover-modal {
+            background: var(--surface, #fff);
+            border-radius: 12px;
+            width: 100%; max-width: 680px;
+            max-height: 88vh;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .leftover-modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border, #e2e8f0);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .leftover-modal-toolbar {
+            padding: 9px 20px;
+            border-bottom: 1px solid var(--border, #e2e8f0);
+            background: var(--surface-2, #f8fafc);
+            display: flex; align-items: center; gap: 14px;
+        }
+        .leftover-modal-body { overflow-y: auto; flex: 1; }
+        .leftover-modal-footer {
+            padding: 13px 20px;
+            border-top: 1px solid var(--border, #e2e8f0);
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            flex-wrap: wrap;
+        }
+        .leftover-modal table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .leftover-modal th {
+            padding: 8px 10px; text-align: left;
+            background: var(--surface-2, #f0f4f8);
+            border-bottom: 2px solid var(--border, #e2e8f0);
+            position: sticky; top: 0; z-index: 1;
+        }
+        .leftover-modal td { padding: 6px 10px; border-bottom: 1px solid var(--border, #f0f0f0); }
+        .leftover-modal tr:hover td { background: var(--surface-2, #f8fafc); }
+        .date-group-row td {
+            background: var(--surface-2, #f0f4f8) !important;
+            padding: 8px 12px; font-weight: 600;
+        }
+        .close-btn {
+            background: none; border: none; font-size: 1.4rem;
+            cursor: pointer; color: #888; padding: 2px 8px; line-height: 1;
+        }
+        .close-btn:hover { color: #333; }
     </style>
 </head>
 <body>
@@ -25,7 +110,7 @@
         </div>
         <button onclick="logout()" class="btn-danger"><i data-lucide="log-out"></i> Logout</button>
     </header>
-    
+
     <div class="app-body">
         <nav class="sidebar" id="appSidebar">
             <a href="/single.html"><i data-lucide="file-plus-2"></i> Single Entry</a>
@@ -37,34 +122,72 @@
 
         <main class="content">
             <h2>Invoice & Collection Manager</h2>
-            
-            <div id="leftoverAlert" class="alert-box" style="display: none;"></div>
 
+            <!-- Leftover Alert Banner -->
+            <div id="leftoverAlert" class="alert-box" style="display:none;"></div>
+
+            <!-- Generate Invoice Card -->
             <div class="card">
-                <div style="margin-bottom: 1.5rem; display: flex; gap: 10px;">
-                    <button id="tabDate" class="btn-primary" onclick="setGenerateMode('date')">Generate by Date</button>
-                    <button id="tabBill" class="btn-outline" onclick="setGenerateMode('bill')">Generate by Bill No</button>
+
+                <!-- Invoice Name -->
+                <div style="margin-bottom:1.2rem;">
+                    <label style="display:block; font-weight:600; margin-bottom:8px;">Invoice Name</label>
+                    <div class="inv-name-row">
+                        <input id="invPrefix"  type="text" value="BSS"     placeholder="Prefix"  style="width:75px;"  oninput="onInvoiceNameInput()">
+                        <span class="sep">/</span>
+                        <input id="invSeries"  type="text" value="BDO2627" placeholder="FY Code" style="width:115px;" oninput="onInvoiceNameInput()">
+                        <span class="sep">/</span>
+                        <input id="invNumber"  type="text" placeholder="01" style="width:65px; text-align:center;" oninput="onInvoiceNameInput()">
+                        <div class="inv-preview">→ <strong id="previewText">—</strong></div>
+                    </div>
                 </div>
 
-                <div id="dateInputs" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+                <!-- Mode Tabs -->
+                <div style="margin-bottom:1rem; display:flex; gap:10px;">
+                    <button id="tabDate" class="btn-primary" onclick="setGenerateMode('date')">📅 By Date</button>
+                    <button id="tabBill" class="btn-outline" onclick="setGenerateMode('bill')">🔢 By Bill No</button>
+                </div>
+
+                <!-- Date Inputs -->
+                <div id="dateInputs" style="display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap;">
                     <div><label>Start Date</label><input type="date" id="invStartDate"></div>
                     <div><label>End Date</label><input type="date" id="invEndDate"></div>
                 </div>
 
-                <div id="billInputs" style="display: none; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+                <!-- Bill No Inputs -->
+                <div id="billInputs" style="display:none; gap:1rem; align-items:flex-end; flex-wrap:wrap;">
                     <div><label>Start Bill No</label><input type="number" id="invStartBill" placeholder="e.g. 101"></div>
                     <div><label>End Bill No</label><input type="number" id="invEndBill" placeholder="e.g. 150"></div>
                 </div>
 
-                <button id="generateBtn" onclick="generateInvoice()" class="btn-primary mt-1">
-                    <i data-lucide="file-check-2"></i> Generate Invoice
-                </button>
+                <!-- Action Buttons -->
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:1rem; align-items:center;">
+                    <button id="generateBtn" onclick="generateInvoice()" class="btn-primary">
+                        <i data-lucide="file-check-2"></i> Generate Invoice
+                    </button>
+                    <button class="btn-outline" onclick="openLeftoverPicker()">
+                        <i data-lucide="list-checks"></i> Add Leftover Bills
+                    </button>
+                </div>
+
+                <!-- Leftover selection badge -->
+                <div id="leftoverBadge" class="leftover-badge">
+                    <i data-lucide="check-circle"></i> <span id="leftoverBadgeText"></span>
+                </div>
             </div>
 
+            <!-- Invoice Table -->
             <div class="table-wrapper">
                 <table>
                     <thead>
-                        <tr><th>Invoice No</th><th>Billing Period / Range</th><th>Total Amount</th><th>Collected</th><th>Status</th><th>Action</th></tr>
+                        <tr>
+                            <th>Invoice No</th>
+                            <th>Billing Period</th>
+                            <th>Total Amount</th>
+                            <th>Collected</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
                     </thead>
                     <tbody id="invoiceTableBody"></tbody>
                 </table>
@@ -72,7 +195,62 @@
         </main>
     </div>
 
-    <div id="customModal" class="modal-overlay"><div class="modal-box"><div class="modal-header"><h3 id="modalTitle"></h3></div><div class="modal-body"><p id="modalMessage"></p><input type="text" id="modalInput" style="display:none;"></div><div class="modal-footer"><button id="modalBtnCancel" class="btn-outline" style="display:none;" onclick="closeModal(false)">Cancel</button><button id="modalBtnConfirm" class="btn-primary" onclick="closeModal(true)">OK</button></div></div></div>
+    <!-- ── Leftover Bills Picker Modal ───────────────────────────────────── -->
+    <div id="leftoverModalOverlay" class="leftover-modal-overlay" onclick="handleOverlayClick(event)">
+        <div class="leftover-modal">
+            <div class="leftover-modal-header">
+                <div>
+                    <div style="font-weight:700; font-size:1.05rem;">📋 Leftover Bills</div>
+                    <div style="font-size:0.82rem; color:#666; margin-top:2px;">Tick bills to include in the new invoice</div>
+                </div>
+                <button class="close-btn" onclick="closeLeftoverPicker()">✕</button>
+            </div>
+
+            <div class="leftover-modal-toolbar">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.9rem; font-weight:600;">
+                    <input type="checkbox" id="selectAllLeftovers" onchange="toggleAllLeftovers(this)" style="width:16px;height:16px;cursor:pointer;">
+                    Select All
+                </label>
+                <span id="leftoverSelCount" style="font-size:0.85rem; color:#666;">0 selected</span>
+            </div>
+
+            <div class="leftover-modal-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:36px;"></th>
+                            <th>Bill No</th>
+                            <th>Date</th>
+                            <th>Vehicle</th>
+                            <th>Fuel</th>
+                            <th style="text-align:right;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leftoverTableBody"></tbody>
+                </table>
+            </div>
+
+            <div class="leftover-modal-footer">
+                <div id="leftoverTotalBar" style="font-size:0.92rem; color:#555; font-weight:600;">Selected: ₹0.00</div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-outline" onclick="closeLeftoverPicker()">Cancel</button>
+                    <button class="btn-primary" onclick="confirmLeftoverSelection()">✅ Add to Invoice</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Standard Modal -->
+    <div id="customModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header"><h3 id="modalTitle"></h3></div>
+            <div class="modal-body"><p id="modalMessage"></p><input type="text" id="modalInput" style="display:none;"></div>
+            <div class="modal-footer">
+                <button id="modalBtnCancel" class="btn-outline" style="display:none;" onclick="closeModal(false)">Cancel</button>
+                <button id="modalBtnConfirm" class="btn-primary" onclick="closeModal(true)">OK</button>
+            </div>
+        </div>
+    </div>
 
     <script src="/js/api.js"></script>
     <script src="/js/auth.js"></script>
@@ -82,8 +260,24 @@
         checkAuth();
         lucide.createIcons();
         document.getElementById('roleBadge').innerText = localStorage.getItem('role');
-        if(localStorage.getItem('role') === 'ADMIN') document.getElementById('adminTabBtn').style.display = 'flex';
-        
+        if (localStorage.getItem('role') === 'ADMIN') document.getElementById('adminTabBtn').style.display = 'flex';
+
+        // Live invoice name preview
+        ['invPrefix','invSeries','invNumber'].forEach(id => {
+            document.getElementById(id)?.addEventListener('input', function() {
+                const p = (document.getElementById('invPrefix').value  || '').trim().toUpperCase();
+                const s = (document.getElementById('invSeries').value  || '').trim().toUpperCase();
+                const n = (document.getElementById('invNumber').value  || '').trim();
+                document.getElementById('previewText').textContent =
+                    (p && s && n) ? `${p}/${s}/${n.padStart(2,'0')}` : '—';
+            });
+        });
+
+        // Close leftover modal on overlay click
+        function handleOverlayClick(e) {
+            if (e.target === document.getElementById('leftoverModalOverlay')) closeLeftoverPicker();
+        }
+
         window.onload = () => { initInvoices(); };
     </script>
 </body>

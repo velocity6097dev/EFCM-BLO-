@@ -7,6 +7,36 @@
     <link href="/css/global.css" rel="stylesheet">
     <link href="/css/dashboard.css" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <style>
+        .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .tab-btn { padding: 0.6rem 1.1rem; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 600; cursor: pointer; color: var(--text-muted); }
+        .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .total-row { font-weight: 700; background: #f1f5f9; color: var(--primary); }
+        .leftover-row { background: #fef3c7 !important; }
+        .pending-row { background: #fee2e2 !important; color: #991b1b; }
+        .leftover-bar { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:12px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; margin-bottom:1rem; flex-wrap:wrap; }
+        .leftover-bar strong { color:#92400e; }
+
+        /* Dashboard summary (front page) */
+        .summary-container { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
+        @media (min-width: 1024px) { .summary-container { grid-template-columns: 2fr 1fr; gap: 2rem;} }
+        .page-totals-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 1.5rem;}
+        @media (min-width: 480px) { .page-totals-grid { grid-template-columns: 1fr 1fr; } }
+        .summary-card { padding: 1.2rem; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; border-left: 4px solid var(--primary);}
+        .summary-card h4 { margin: 0 0 0.5rem 0; color: var(--text-muted); font-size: 0.9rem; text-transform: uppercase;}
+        .summary-card p { margin: 0; font-size: 1.1rem; color: var(--text-main); font-weight: 600;}
+        .summary-card.pending { border-left-color: #ef4444; }
+        .summary-card.pending p { color: #b91c1c; }
+        .reconciliation-panel { background: #f8fafc; padding: 1.5rem; border-radius: 8px; border: 2px solid #e2e8f0; height: fit-content;}
+        .recon-row { display: flex; justify-content: space-between; margin-bottom: 0.8rem; align-items: center; font-weight: 500; color: var(--text-muted);}
+        .recon-row span:last-child { color: var(--text-main); font-weight: 700; font-size: 1.1rem;}
+        .net-total { font-size: 1.2rem; color: var(--primary); font-weight: 800; border-top: 2px dashed #cbd5e1; padding-top: 1rem; margin-top: 1rem; }
+        .net-total span:last-child { color: var(--primary); font-size: 1.5rem; }
+        .missing-bills-panel { padding: 1rem; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; color: #be123c; font-size: 0.85rem;}
+    </style>
 </head>
 <body>
     <header>
@@ -18,7 +48,7 @@
         </div>
         <button onclick="logout()" class="btn-danger"><i data-lucide="log-out"></i> Logout</button>
     </header>
-    
+
     <div class="app-body">
         <nav class="sidebar" id="appSidebar">
             <a href="/single.html"><i data-lucide="file-plus-2"></i> Single Entry</a>
@@ -30,30 +60,49 @@
 
         <main class="content">
             <h2>View Bills & Integrity Check</h2>
-            
+
             <div class="flex-row mb-1">
                 <button onclick="checkIntegrity()" class="btn-danger"><i data-lucide="shield-alert"></i> Check Missing Bills</button>
                 <button onclick="loadAllBills()" class="btn-outline"><i data-lucide="refresh-cw"></i> Refresh List</button>
+                <button onclick="exportToExcel()" class="btn-primary"><i data-lucide="download"></i> Download Excel (Consolidated)</button>
             </div>
-            
+
             <div id="integrityResult" style="display: none; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-weight: 500;"></div>
-            
-            <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Bill No</th>
-                            <th>Date</th>
-                            <th>Vehicle</th>
-                            <th>Fuel Type</th>
-                            <th>Amount (₹)</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="summaryTableBody">
-                        </tbody>
-                </table>
+
+            <div class="leftover-bar">
+                <div><strong>Leftover Selection:</strong> <span id="leftoverCount">0</span> bill(s) selected</div>
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="btn-outline" onclick="clearLeftovers()"><i data-lucide="x"></i> Clear Selection</button>
+                    <button class="btn-primary" onclick="exportLeftoverToExcel()"><i data-lucide="download"></i> Export Leftover Bills</button>
+                </div>
             </div>
+
+            <div class="tabs" id="tabsContainer"></div>
+
+            <!-- Dashboard Summary (front page) -->
+            <div id="dashSummary" class="tab-content">
+                <div class="summary-container">
+                    <div>
+                        <div class="page-totals-grid" id="pageTotalsGrid"></div>
+                        <div class="missing-bills-panel" id="missingPanel" style="display:none;">
+                            <strong>⚠️ Integrity Check:</strong> <span id="missingList"></span>
+                        </div>
+                    </div>
+                    <div class="reconciliation-panel">
+                        <h3 style="margin-top:0; color:#004b87; font-size: 1.1rem; text-transform: uppercase;">Grand Totals</h3>
+                        <div class="recon-row">
+                            <span>Total Quantity:</span>
+                            <span id="grandQntyText">0.00 L</span>
+                        </div>
+                        <div class="recon-row net-total">
+                            <span>GRAND TOTAL AMOUNT:</span>
+                            <span id="grandTotalText">₹0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sheetsContainer"></div>
         </main>
     </div>
 
@@ -72,50 +121,192 @@
     <script src="/js/auth.js"></script>
     <script src="/js/layout.js"></script>
     <script>
-        // Authentication & UI Initialization
+        const PAGE_SIZE = 50;
+        let allBills = [];
+        let activeTabId = 'dashSummary';
+        let leftoverIds = new Set();
+
         checkAuth();
         document.getElementById('roleBadge').innerText = localStorage.getItem('role');
         if(localStorage.getItem('role') === 'ADMIN') document.getElementById('adminTabBtn').style.display = 'flex';
-        
-        // Run on page load
-        window.onload = () => { 
+
+        window.onload = () => {
             lucide.createIcons();
-            loadAllBills(); // Fetch bills immediately when page opens
+            loadAllBills();
         };
 
-        // --- Core Page Logic ---
         async function loadAllBills() {
-            const tbody = document.getElementById('summaryTableBody');
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="color: var(--text-muted);">Loading bills...</td></tr>';
-            
+            const container = document.getElementById('sheetsContainer');
+            container.innerHTML = '<p class="text-center" style="color: var(--text-muted);">Loading bills...</p>';
+
             try {
                 const bills = await apiFetch('/api/bills');
-                tbody.innerHTML = '';
-                
-                if (bills.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">No bills entered yet.</td></tr>';
-                    return;
+                // FIX: API returns bill_no as a STRING and quantity as "quantity" not "qnty"
+                allBills = bills.map(b => ({
+                    ...b,
+                    billNo: parseInt(b.billNo, 10),
+                    qnty: (b.qnty !== undefined ? b.qnty : b.quantity) || 0
+                })).filter(b => !isNaN(b.billNo))
+                  .sort((a, b) => a.billNo - b.billNo);
+
+                renderGroups();
+            } catch (error) {
+                container.innerHTML = '<p class="text-center" style="color: var(--danger);">Error loading bills. Please try again.</p>';
+            }
+        }
+
+        function renderGroups() {
+            let maxBill = allBills.length > 0 ? Math.max(...allBills.map(b => b.billNo)) : 0;
+            let numPages = Math.max(1, Math.ceil(maxBill / PAGE_SIZE));
+
+            let tabsHTML = `<button class="tab-btn ${activeTabId==='dashSummary'?'active':''}" onclick="switchTab('dashSummary', this)">Dashboard Summary</button>`;
+            for (let i = 0; i < numPages; i++) {
+                let start = i * PAGE_SIZE + 1;
+                let end = (i + 1) * PAGE_SIZE;
+                let tid = `sheet${i+1}`;
+                tabsHTML += `<button class="tab-btn ${activeTabId===tid?'active':''}" onclick="switchTab('${tid}', this)">Bills ${start}-${end}</button>`;
+            }
+            document.getElementById('tabsContainer').innerHTML = tabsHTML;
+
+            let billMap = new Map();
+            allBills.forEach(b => billMap.set(b.billNo, b));
+
+            let sheetsHTML = '';
+            let pageTotals = [];
+            let grandQnty = 0, grandAmt = 0;
+
+            for (let i = 0; i < numPages; i++) {
+                let start = i * PAGE_SIZE + 1;
+                let end = (i + 1) * PAGE_SIZE;
+                let tid = `sheet${i+1}`;
+
+                let rows = '';
+                let totalQnty = 0;
+                let totalAmt = 0;
+                let pendingCount = 0;
+
+                for (let billNo = start; billNo <= end; billNo++) {
+                    const b = billMap.get(billNo);
+                    if (b) {
+                        totalQnty += (b.qnty || 0);
+                        totalAmt += b.amount;
+                        const checked = leftoverIds.has(b.billNo) ? 'checked' : '';
+                        const rowClass = leftoverIds.has(b.billNo) ? 'leftover-row' : '';
+                        rows += `
+                            <tr class="${rowClass}" id="row-${b.billNo}">
+                                <td><input type="checkbox" ${checked} onchange="toggleLeftover(${b.billNo}, this)"></td>
+                                <td><strong>${b.billNo}</strong></td>
+                                <td>${b.date || 'N/A'}</td>
+                                <td>${b.vehicleNo || '-'}</td>
+                                <td>${b.fuelType || '-'}</td>
+                                <td>${(b.qnty || 0).toFixed(2)}</td>
+                                <td>₹${b.amount.toFixed(2)}</td>
+                            </tr>`;
+                    } else {
+                        pendingCount++;
+                        rows += `
+                            <tr class="pending-row" id="row-${billNo}">
+                                <td></td>
+                                <td><strong>${billNo}</strong></td>
+                                <td colspan="5" style="text-align:left; font-style: italic;">NOT RECEIVED YET</td>
+                            </tr>`;
+                    }
                 }
 
-                bills.forEach(b => {
-                    const statusBadge = b.isOverride 
-                        ? `<span class="badge badge-warning">Overridden</span>` 
-                        : `<span class="badge badge-success">Normal</span>`;
-                        
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><strong>${b.billNo}</strong></td>
-                            <td>${b.date || 'N/A'}</td>
-                            <td>${b.vehicleNo || '-'}</td>
-                            <td>${b.fuelType}</td>
-                            <td>₹${b.amount.toFixed(2)}</td>
-                            <td>${statusBadge}</td>
-                        </tr>
-                    `;
-                });
-            } catch (error) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="color: var(--danger);">Error loading bills. Please try again.</td></tr>';
+                pageTotals.push({ q: totalQnty, a: totalAmt, pending: pendingCount });
+                grandQnty += totalQnty;
+                grandAmt += totalAmt;
+
+                rows += `<tr class="total-row"><td colspan="5" style="text-align:right">GROUP TOTAL:</td><td>${totalQnty.toFixed(2)}</td><td>₹${totalAmt.toFixed(2)}</td></tr>`;
+
+                sheetsHTML += `
+                <div id="${tid}" class="tab-content ${activeTabId===tid?'active':''}">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Leftover</th>
+                                    <th>Bill No</th>
+                                    <th>Date</th>
+                                    <th>Vehicle</th>
+                                    <th>Fuel Type</th>
+                                    <th>Qnty (L)</th>
+                                    <th>Amount (₹)</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>`;
             }
+            document.getElementById('sheetsContainer').innerHTML = sheetsHTML;
+
+            let cardsHTML = '';
+            for (let i = 0; i < numPages; i++) {
+                let start = i * PAGE_SIZE + 1;
+                let end = (i + 1) * PAGE_SIZE;
+                let p = pageTotals[i];
+                let pendingNote = p.pending > 0 ? ` (${p.pending} pending)` : '';
+                cardsHTML += `
+                <div class="summary-card ${p.pending > 0 ? 'pending' : ''}">
+                    <h4>Bills ${start} - ${end}${pendingNote}</h4>
+                    <p>${p.q.toFixed(2)} L | ₹${p.a.toFixed(2)}</p>
+                </div>`;
+            }
+            document.getElementById('pageTotalsGrid').innerHTML = cardsHTML;
+            document.getElementById('grandQntyText').innerText = `${grandQnty.toFixed(2)} L`;
+            document.getElementById('grandTotalText').innerText = `₹${grandAmt.toFixed(2)}`;
+
+            document.getElementById('dashSummary').classList.toggle('active', activeTabId === 'dashSummary');
+
+            checkMissingBillsPanel();
+            updateLeftoverCount();
+        }
+
+        function checkMissingBillsPanel() {
+            if (allBills.length === 0) {
+                document.getElementById('missingPanel').style.display = 'none';
+                return;
+            }
+            let max = Math.max(...allBills.map(b => b.billNo));
+            let existing = new Set(allBills.map(b => b.billNo));
+            let missing = [];
+            for (let i = 1; i <= max; i++) { if (!existing.has(i)) missing.push(i); }
+            if (missing.length > 0) {
+                document.getElementById('missingPanel').style.display = 'block';
+                document.getElementById('missingList').innerText = "Missing Bill Numbers: " + missing.join(", ");
+            } else {
+                document.getElementById('missingPanel').style.display = 'none';
+            }
+        }
+
+        function switchTab(tabId, btn) {
+            activeTabId = tabId;
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            if (btn) btn.classList.add('active');
+        }
+
+        function toggleLeftover(billNo, checkbox) {
+            const row = document.getElementById(`row-${billNo}`);
+            if (checkbox.checked) {
+                leftoverIds.add(billNo);
+                row.classList.add('leftover-row');
+            } else {
+                leftoverIds.delete(billNo);
+                row.classList.remove('leftover-row');
+            }
+            updateLeftoverCount();
+        }
+
+        function clearLeftovers() {
+            leftoverIds.clear();
+            renderGroups();
+        }
+
+        function updateLeftoverCount() {
+            document.getElementById('leftoverCount').innerText = leftoverIds.size;
         }
 
         async function checkIntegrity() {
@@ -127,11 +318,11 @@
             resultDiv.style.backgroundColor = '#f8fafc';
             resultDiv.style.color = 'var(--text-muted)';
             resultDiv.style.border = '1px solid var(--border-light)';
-            
+
             try {
                 const res = await apiFetch('/api/bills?action=integrity');
-                
-                if(res.missingBills && res.missingBills.length > 0) {
+
+                if (res.missingBills && res.missingBills.length > 0) {
                     resultDiv.style.backgroundColor = '#fef2f2';
                     resultDiv.style.color = 'var(--danger-dark)';
                     resultDiv.style.border = '1px solid #fecaca';
@@ -142,10 +333,219 @@
                     resultDiv.style.border = '1px solid #a7f3d0';
                     resultDiv.innerHTML = `<i data-lucide="check-circle-2"></i> <div><strong>Integrity Passed:</strong> No missing bills found in the sequence.</div>`;
                 }
-                lucide.createIcons(); // Render the newly injected icon
+                lucide.createIcons();
             } catch (error) {
                 resultDiv.innerHTML = "Failed to run integrity check.";
             }
+        }
+
+        // ---- Excel Styles (same pattern as admin.html) ----
+
+        const borderAll = {
+            top: { style: "medium", color: { rgb: "000000" } },
+            bottom: { style: "medium", color: { rgb: "000000" } },
+            left: { style: "medium", color: { rgb: "000000" } },
+            right: { style: "medium", color: { rgb: "000000" } }
+        };
+        const thinBorderAll = {
+            top: { style: "thin", color: { rgb: "000000" } },
+            bottom: { style: "thin", color: { rgb: "000000" } },
+            left: { style: "thin", color: { rgb: "000000" } },
+            right: { style: "thin", color: { rgb: "000000" } }
+        };
+        const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" }, sz: 12 }, fill: { fgColor: { rgb: "004b87" } }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: borderAll };
+        const dataStyle = { alignment: { horizontal: "center", vertical: "center" }, border: thinBorderAll, font: { sz: 12 } };
+        const dataStyleBold = { font: { bold: true, sz: 12 }, alignment: { horizontal: "center", vertical: "center" }, border: borderAll };
+        const pendingStyle = { alignment: { horizontal: "center", vertical: "center" }, border: thinBorderAll, font: { sz: 12, italic: true, color: { rgb: "991B1B" } }, fill: { fgColor: { rgb: "FEE2E2" } } };
+
+        // Builds per-group sheets (with NOT RECEIVED YET rows for blanks).
+        function buildGroupSheets(billList, wbout) {
+            let sorted = billList.slice().sort((a, b) => a.billNo - b.billNo);
+            let billMap = new Map();
+            sorted.forEach(b => billMap.set(b.billNo, b));
+
+            let maxBillNo = sorted.length > 0 ? Math.max(...sorted.map(b => b.billNo)) : 0;
+            let numPages = Math.ceil(maxBillNo / PAGE_SIZE) || 1;
+
+            let pageTotals = [];
+
+            for (let i = 0; i < numPages; i++) {
+                let start = i * PAGE_SIZE + 1;
+                let end = (i + 1) * PAGE_SIZE;
+
+                let sheetData = [["Bill No", "Date", "Vehicle No", "Fuel Type", "Qnty (L)", "Amount (₹)"]];
+                let pQnty = 0, pAmount = 0;
+                let pendingRows = [];
+
+                for (let billNo = start; billNo <= end; billNo++) {
+                    const b = billMap.get(billNo);
+                    if (b) {
+                        sheetData.push([b.billNo, b.date || 'N/A', b.vehicleNo || '-', b.fuelType || '-', b.qnty || 0, b.amount]);
+                        pQnty += (b.qnty || 0);
+                        pAmount += b.amount;
+                    } else {
+                        sheetData.push([billNo, "NOT RECEIVED YET", "", "", "", ""]);
+                        pendingRows.push(sheetData.length - 1);
+                    }
+                }
+                sheetData.push(["TOTAL", "", "", "", pQnty, pAmount]);
+
+                let ws = XLSX.utils.aoa_to_sheet(sheetData);
+                ws['!rows'] = [{hpt: 35}];
+                for (let R = 1; R < sheetData.length; R++) ws['!rows'].push({hpt: 22});
+
+                for (let R = 0; R < sheetData.length; ++R) {
+                    for (let C = 0; C < sheetData[0].length; ++C) {
+                        let cellRef = XLSX.utils.encode_cell({r: R, c: C});
+                        if (!ws[cellRef]) ws[cellRef] = { t: "s", v: "" };
+                        if (R === 0) ws[cellRef].s = headerStyle;
+                        else if (R === sheetData.length - 1) ws[cellRef].s = dataStyleBold;
+                        else if (pendingRows.includes(R)) ws[cellRef].s = pendingStyle;
+                        else ws[cellRef].s = dataStyle;
+                    }
+                }
+                ws['!merges'] = ws['!merges'] || [];
+                pendingRows.forEach(R => {
+                    ws['!merges'].push({ s: {r: R, c: 1}, e: {r: R, c: 5} });
+                });
+
+                ws['!cols'] = [{wch: 12}, {wch: 15}, {wch: 18}, {wch: 15}, {wch: 15}, {wch: 14}];
+
+                let sheetName = `Bills ${start}-${end}`;
+                XLSX.utils.book_append_sheet(wbout, ws, sheetName);
+                pageTotals.push({ name: sheetName, q: pQnty, a: pAmount, pending: pendingRows.length });
+            }
+
+            return pageTotals;
+        }
+
+        // Builds full consolidated workbook: Master Invoice sheet + per-group sheets
+        function buildConsolidatedWorkbook(billList, fileNameBase) {
+            if (billList.length === 0) {
+                alert("No bills to export.");
+                return;
+            }
+
+            let wbout = XLSX.utils.book_new();
+            let pageTotals = buildGroupSheets(billList, wbout);
+
+            let totalQntyAll = pageTotals.reduce((s, p) => s + p.q, 0);
+            let totalAmountAll = pageTotals.reduce((s, p) => s + p.a, 0);
+            let totalPending = pageTotals.reduce((s, p) => s + p.pending, 0);
+
+            let masterData = [
+                ["M/S. BAHAR SERVICE STATION (CC-220994)", "", ""],
+                ["OFFICIAL RECORD: FOR REVIEW", "", ""],
+                ["CONSOLIDATED FUEL SUPPLY RECORD", "", ""],
+                [`GENERATED ON: ${new Date().toLocaleDateString('en-IN')}`, "", ""],
+                ["PURPOSE / EVENT: _____________________________________________", "", ""],
+                ["", "", ""],
+                ["PAGE REFERENCE", "TOTAL QUANTITY (LTR)", "TOTAL AMOUNT (₹)"]
+            ];
+
+            let startDataRow = 7;
+            pageTotals.forEach(p => {
+                let label = p.pending > 0 ? `${p.name}  (${p.pending} pending)` : p.name;
+                masterData.push([label, p.q, p.a]);
+            });
+
+            let emptyRowIdx = masterData.length;
+            masterData.push(["", "", ""]);
+
+            let summaryStartRow = masterData.length;
+            masterData.push(["GROSS TOTAL", totalQntyAll, totalAmountAll]);
+
+            let termsStartRow = masterData.length;
+            masterData.push(["", "", ""]);
+            masterData.push(["TERMS & DECLARATION", "", ""]);
+            masterData.push(["1. This is a system-generated record updated on the next business day.", "", ""]);
+            masterData.push(["2. Rows marked 'NOT RECEIVED YET' indicate bill numbers in this range that", "", ""]);
+            masterData.push(["   have not yet been entered. Please review and add manually when received.", "", ""]);
+            if (totalPending > 0) {
+                masterData.push([`3. Total pending entries across all groups: ${totalPending}`, "", ""]);
+            }
+
+            let wsMaster = XLSX.utils.aoa_to_sheet(masterData);
+
+            wsMaster['!merges'] = [
+                { s: {r: 0, c: 0}, e: {r: 0, c: 2} },
+                { s: {r: 1, c: 0}, e: {r: 1, c: 2} },
+                { s: {r: 2, c: 0}, e: {r: 2, c: 2} },
+                { s: {r: 3, c: 0}, e: {r: 3, c: 2} },
+                { s: {r: 4, c: 0}, e: {r: 4, c: 2} },
+                { s: {r: termsStartRow + 1, c: 0}, e: {r: termsStartRow + 1, c: 2} },
+                { s: {r: termsStartRow + 2, c: 0}, e: {r: termsStartRow + 2, c: 2} },
+                { s: {r: termsStartRow + 3, c: 0}, e: {r: termsStartRow + 3, c: 2} },
+            ];
+            if (totalPending > 0) {
+                wsMaster['!merges'].push({ s: {r: termsStartRow + 4, c: 0}, e: {r: termsStartRow + 4, c: 2} });
+            }
+
+            let masterRows = [
+                {hpt: 50}, {hpt: 30}, {hpt: 30}, {hpt: 30}, {hpt: 30}, {hpt: 15}, {hpt: 50}
+            ];
+
+            const masterDataStyle = { alignment: { horizontal: "center", vertical: "center" }, border: borderAll, font: { sz: 14 } };
+            const masterPendingStyle = { alignment: { horizontal: "center", vertical: "center" }, border: borderAll, font: { sz: 14, italic: true, color: { rgb: "991B1B" } }, fill: { fgColor: { rgb: "FEE2E2" } } };
+            const masterNetStyle = { alignment: { horizontal: "right", vertical: "center" }, border: borderAll, font: { bold: true, sz: 18 }, fill: { fgColor: { rgb: "e2e8f0" } } };
+            const termsHeaderStyle = { font: { sz: 14, bold: true, underline: true }, alignment: { horizontal: "left", vertical: "center" } };
+            const termsStyle = { font: { sz: 14, bold: false }, alignment: { horizontal: "left", vertical: "center" } };
+
+            for (let R = 0; R < masterData.length; ++R) {
+                if (R >= startDataRow && R < termsStartRow) masterRows.push({hpt: 45});
+                else if (R >= termsStartRow) masterRows.push({hpt: 25});
+
+                for (let C = 0; C < 3; ++C) {
+                    let cellRef = XLSX.utils.encode_cell({r: R, c: C});
+                    if (!wsMaster[cellRef]) wsMaster[cellRef] = { t: "s", v: "" };
+
+                    if (R === 0) wsMaster[cellRef].s = { font: { bold: true, sz: 20, color: { rgb: "004b87" } }, alignment: { horizontal: "center", vertical: "center" } };
+                    else if (R === 1) wsMaster[cellRef].s = { font: { bold: true, sz: 16, color: { rgb: "333333" } }, alignment: { horizontal: "center", vertical: "center" } };
+                    else if (R === 2) wsMaster[cellRef].s = { font: { bold: true, sz: 16 }, alignment: { horizontal: "center", vertical: "center" } };
+                    else if (R === 3) wsMaster[cellRef].s = { font: { italic: true, sz: 14, color: { rgb: "64748b" } }, alignment: { horizontal: "center", vertical: "center" } };
+                    else if (R === 4) wsMaster[cellRef].s = { font: { bold: true, sz: 14, color: { rgb: "1e293b" } }, alignment: { horizontal: "center", vertical: "center" } };
+                    else if (R === 6) wsMaster[cellRef].s = { ...headerStyle, font: { bold: true, color: { rgb: "FFFFFF" }, sz: 14 }, alignment: { horizontal: "center", vertical: "center" } };
+                    else if (R >= startDataRow && R < emptyRowIdx) {
+                        let idx = R - startDataRow;
+                        let isPending = pageTotals[idx] && pageTotals[idx].pending > 0;
+                        let baseStyle = isPending ? masterPendingStyle : masterDataStyle;
+                        wsMaster[cellRef].s = (C === 0)
+                            ? { ...baseStyle, alignment: { horizontal: "center", vertical: "center" }, font: { ...baseStyle.font, bold: true } }
+                            : baseStyle;
+                    }
+                    else if (R === summaryStartRow) {
+                        wsMaster[cellRef].s = (C === 0)
+                            ? { ...masterNetStyle, alignment: { horizontal: "left", vertical: "center" } }
+                            : masterNetStyle;
+                    }
+                    else if (R === termsStartRow + 1) wsMaster[cellRef].s = termsHeaderStyle;
+                    else if (R > termsStartRow + 1) wsMaster[cellRef].s = termsStyle;
+                }
+            }
+
+            wsMaster['!cols'] = [{wch: 50}, {wch: 25}, {wch: 25}];
+            wsMaster['!rows'] = masterRows;
+
+            let finalWb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(finalWb, wsMaster, "Master Invoice");
+            wbout.SheetNames.forEach(name => {
+                XLSX.utils.book_append_sheet(finalWb, wbout.Sheets[name], name);
+            });
+
+            XLSX.writeFile(finalWb, fileNameBase + ".xlsx");
+        }
+
+        function exportToExcel() {
+            buildConsolidatedWorkbook(allBills, "Bahar_Station_Consolidated_Bills");
+        }
+
+        function exportLeftoverToExcel() {
+            if (leftoverIds.size === 0) {
+                alert("No leftover bills selected.");
+                return;
+            }
+            let selected = allBills.filter(b => leftoverIds.has(b.billNo));
+            buildConsolidatedWorkbook(selected, "Bahar_Station_Leftover_Bills");
         }
     </script>
 </body>
