@@ -1,0 +1,7 @@
+:root { --primary: #004b87; --bg: #f4f7f9; --text: #1e293b; --danger: #ef4444; }
+body { font-family: 'Poppins', sans-serif; background: var(--bg); margin: 0; color: var(--text); }
+.login-bg { display: flex; justify-content: center; align-items: center; height: 100vh; }
+.login-container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 300px; display: flex; flex-direction: column; gap: 1rem; }
+input, select { padding: 0.8rem; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box;}
+button { padding: 0.8rem; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: white; background: var(--primary); }
+.btn-danger { background: var(--danger); }

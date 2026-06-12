@@ -1,0 +1,12 @@
+header { background: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #fdb813; }
+.sidebar { width: 200px; background: white; height: calc(100vh - 70px); position: fixed; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.sidebar button { background: none; color: var(--text); text-align: left; border: 1px solid #ccc; }
+.sidebar button:hover { background: var(--primary); color: white; }
+.content { margin-left: 240px; padding: 2rem; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.table-wrapper { overflow-x: auto; background: white; padding: 1rem; border-radius: 8px; margin-top: 1rem; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 0.5rem; border-bottom: 1px solid #eee; text-align: left; }
+.badge { background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; margin-left: 10px; }
+.card { background: white; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
