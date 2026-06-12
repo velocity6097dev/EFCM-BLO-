@@ -1,72 +1,139 @@
-/* ==========================================================================
-   APP SHELL LAYOUT (Mobile & PC Compatible)
-   ========================================================================== */
-body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+/* ============================================================
+   DASHBOARD-SPECIFIC STYLES
+   Shared across summary / invoices / admin pages.
+   No animations/transitions.
+   ============================================================ */
 
-header { 
-    background: white; padding: 1rem 2.5rem; display: flex; 
-    justify-content: space-between; align-items: center; 
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05); position: relative; 
-    z-index: 50; border-top: 4px solid var(--accent); flex-shrink: 0;
+/* Alert / notice boxes (used on invoices page for leftover warnings) */
+.alert-box {
+  background: #fff1f2;
+  color: var(--danger-dark);
+  border: 1px solid #fecaca;
+  padding: 15px;
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
 }
 
-.brand { display: flex; align-items: center; gap: 10px; }
-.brand h1 { font-size: 1.4rem; margin: 0; color: var(--primary); font-weight: 800; }
-
-.mobile-toggle { display: none; background: none; border: none; color: var(--primary); padding: 0.5rem; cursor: pointer; }
-
-.app-body { display: flex; flex-grow: 1; overflow: hidden; position: relative; }
-
-/* ==========================================================================
-   SIDEBAR (With Mobile Slide-in Animation)
-   ========================================================================== */
-.sidebar { 
-    width: 260px; background: white; height: 100%; padding: 1.5rem 1rem; 
-    display: flex; flex-direction: column; gap: 0.5rem; 
-    box-shadow: 4px 0 15px rgba(0,0,0,0.03); z-index: 40; flex-shrink: 0; overflow-y: auto;
-    transition: left 0.3s ease;
+/* Admin page: responsive grid of cards */
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
-/* Changed from button to 'a' tag for real multi-page linking */
-.sidebar a { 
-    background: transparent; color: var(--text-muted); text-decoration: none;
-    border-radius: var(--radius-md); padding: 0.9rem 1.2rem; font-weight: 500; 
-    transition: all 0.2s ease; border-left: 3px solid transparent; 
-    display: flex; align-items: center; gap: 12px; 
-}
-.sidebar a:hover { background: #f8fafc; color: var(--primary); transform: translateX(4px); }
-.sidebar a.active { background: #f0f7ff; color: var(--primary); border-left: 3px solid var(--primary); font-weight: 600; }
-
-.lucide { width: 20px; height: 20px; stroke-width: 2px; }
-
-/* ==========================================================================
-   MAIN CONTENT AREA
-   ========================================================================== */
-.content { flex-grow: 1; padding: 2.5rem; overflow-y: auto; height: 100%; background: var(--bg-body); }
-button:active:not(:disabled) { transform: scale(0.96); transition: transform 0.1s; }
-
-/* ==========================================================================
-   MOBILE RESPONSIVE RULES (Phones & Tablets)
-   ========================================================================== */
-@media (max-width: 768px) {
-    header { padding: 1rem; }
-    .brand h1 { font-size: 1.1rem; }
-    .mobile-toggle { display: block; }
-    
-    /* Hide sidebar off-screen by default on mobile */
-    .sidebar { position: absolute; left: -280px; top: 0; box-shadow: 10px 0 20px rgba(0,0,0,0.1); }
-    .sidebar.open { left: 0; } /* Class added by JS when hamburger is clicked */
-    
-    .content { padding: 1.5rem 1rem; margin-left: 0; width: 100%; }
-    
-    /* Stack form inputs vertically on mobile */
-    .card.flex-row { flex-direction: column; align-items: stretch !important; }
+/* Active blocks list (admin page) */
+.block-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-light);
+  flex-wrap: wrap;
 }
 
-/* Modals */
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 9999; opacity: 0; transition: opacity 0.3s ease; }
-.modal-overlay.show { display: flex; opacity: 1; }
-.modal-box { background: white; padding: 2rem; border-radius: var(--radius-lg); width: 90%; max-width: 420px; transform: scale(0.90); transition: transform 0.3s; }
-.modal-overlay.show .modal-box { transform: scale(1); }
-.modal-header h3 { margin: 0 0 10px 0; display: flex; align-items: center; gap: 8px;}
-.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.block-list-item:last-child {
+  border-bottom: none;
+}
+
+.block-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.block-info strong {
+  color: var(--danger-dark);
+  font-size: 1rem;
+}
+
+.block-info span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* Edit (pencil) icon button used in price history table */
+.edit-btn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.edit-btn:hover {
+  background: #e0f2fe;
+  color: var(--primary-dark);
+}
+
+/* Price history modal (admin page) */
+#priceHistoryModal > div {
+  width: 90%;
+  max-width: 800px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 600px) {
+  #priceHistoryModal > div {
+    width: 100%;
+    max-height: 90vh;
+  }
+
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .block-list-item {
+    align-items: flex-start;
+  }
+}
+
+/* ============================================================
+   BATCH ENTRY TABLE
+   ============================================================ */
+
+.batch-table-wrapper table {
+  min-width: 950px;
+}
+
+.batch-table-wrapper td input,
+.batch-table-wrapper td select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.batch-table-wrapper td input[readonly] {
+  background-color: var(--bg-light);
+  color: var(--text-muted);
+}
+
+.batch-table-wrapper td {
+  padding: 6px 8px;
+}
+
+.col-bill { width: 100px; }
+.col-date { width: 150px; }
+.col-veh { min-width: 140px; }
+.col-fuel { width: 130px; }
+.col-qty { width: 110px; }
+.col-rate { width: 110px; }
+.col-amt { width: 130px; }
+
+@media (max-width: 900px) {
+  .batch-table-wrapper table {
+    min-width: 850px;
+  }
+}

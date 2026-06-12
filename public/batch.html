@@ -8,75 +8,8 @@
     <link href="/css/dashboard.css" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <style>
-        /* --- PRO TABLE STYLING FIXES --- */
-        .table-wrapper {
-            width: 100%;
-            overflow-x: auto; /* Enables horizontal scroll instead of squishing */
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            border: 1px solid var(--border-color, #e2e8f0);
-            margin-bottom: 1.5rem;
-        }
-        
-        table {
-            width: 100%;
-            min-width: 950px; /* Forces table to be wide enough so inputs fit */
-            border-collapse: collapse;
-        }
-
-        th {
-            background: #f8fafc;
-            padding: 12px 10px;
-            text-align: left;
-            font-size: 0.85rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            color: #64748b;
-            border-bottom: 2px solid #e2e8f0;
-            white-space: nowrap;
-        }
-
-        td {
-            padding: 6px 8px; /* Tighter padding to fit 50 rows better */
-            border-bottom: 1px solid #f1f5f9;
-        }
-
-        /* Make all inputs fill their columns perfectly */
-        td input, td select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            font-size: 0.9rem;
-            outline: none;
-            box-sizing: border-box; /* Prevents padding from breaking width */
-            font-family: inherit;
-            transition: all 0.2s;
-        }
-
-        td input:focus, td select:focus {
-            border-color: var(--primary, #0ea5e9);
-            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15); /* Clean focus ring */
-        }
-        
-        /* Subtle grey for readonly fields */
-        td input[readonly] {
-            background-color: #f8fafc;
-            color: #64748b;
-            border-color: #e2e8f0;
-        }
-
-        /* Dedicated column widths to protect important inputs */
-        .col-bill { width: 100px; }
-        .col-date { width: 150px; }
-        .col-veh { min-width: 140px; }
-        .col-fuel { width: 130px; }
-        .col-qty { width: 110px; }
-        .col-rate { width: 110px; }
-        .col-amt { width: 130px; }
-    </style>
+    <!-- Table styling (including column widths and batch-table-wrapper)
+         now lives in /css/dashboard.css -->
 </head>
 <body>
     <header>
@@ -103,7 +36,7 @@
                 <h2>Batch Entry</h2>
             </div>
             
-            <div class="table-wrapper">
+            <div class="table-wrapper batch-table-wrapper">
                 <table>
                     <thead>
                         <tr>
