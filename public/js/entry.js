@@ -1,7 +1,8 @@
 function generateMultiEntryGrid() {
     const tbody = document.getElementById('multiEntryBody');
     tbody.innerHTML = '';
-    const today = new Date().toISOString().split('T')[0];
+    // 🚀 DATE FIX: use local date, not UTC, to avoid being a day behind in IST
+    const today = getLocalDateString();
     
     for(let i = 0; i < 50; i++) {
         tbody.innerHTML += `

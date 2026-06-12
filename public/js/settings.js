@@ -107,7 +107,9 @@ async function unblock(id) {
 window.addEventListener('DOMContentLoaded', () => {
     const priceDateInput = document.getElementById('priceDate');
     if(priceDateInput) {
-        priceDateInput.valueAsDate = new Date();
+        // 🚀 DATE FIX: valueAsDate sets the UTC date, which can show "yesterday"
+        // in IST during early morning hours. Use the local date string instead.
+        priceDateInput.value = getLocalDateString();
     }
 });
 
