@@ -7,10 +7,79 @@
     <link href="/css/global.css" rel="stylesheet">
     <link href="/css/dashboard.css" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* --- PRO TABLE STYLING FIXES --- */
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto; /* Enables horizontal scroll instead of squishing */
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color, #e2e8f0);
+            margin-bottom: 1.5rem;
+        }
+        
+        table {
+            width: 100%;
+            min-width: 950px; /* Forces table to be wide enough so inputs fit */
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8fafc;
+            padding: 12px 10px;
+            text-align: left;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #64748b;
+            border-bottom: 2px solid #e2e8f0;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 6px 8px; /* Tighter padding to fit 50 rows better */
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        /* Make all inputs fill their columns perfectly */
+        td input, td select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            outline: none;
+            box-sizing: border-box; /* Prevents padding from breaking width */
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        td input:focus, td select:focus {
+            border-color: var(--primary, #0ea5e9);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15); /* Clean focus ring */
+        }
+        
+        /* Subtle grey for readonly fields */
+        td input[readonly] {
+            background-color: #f8fafc;
+            color: #64748b;
+            border-color: #e2e8f0;
+        }
+
+        /* Dedicated column widths to protect important inputs */
+        .col-bill { width: 100px; }
+        .col-date { width: 150px; }
+        .col-veh { min-width: 140px; }
+        .col-fuel { width: 130px; }
+        .col-qty { width: 110px; }
+        .col-rate { width: 110px; }
+        .col-amt { width: 130px; }
+    </style>
 </head>
 <body>
     <header>
-        <!-- SAME HEADER AS SINGLE.HTML -->
         <div class="brand">
             <button class="mobile-toggle" onclick="toggleSidebar()"><i data-lucide="menu"></i></button>
             <i data-lucide="fuel" style="color: var(--primary); width: 28px; height: 28px;"></i>
@@ -23,7 +92,6 @@
     <div class="app-body">
         <nav class="sidebar" id="appSidebar">
             <a href="/single.html"><i data-lucide="file-plus-2"></i> Single Entry</a>
-            <!-- Note: Batch is active now! -->
             <a href="/batch.html" class="active"><i data-lucide="layers"></i> Batch Entry (50)</a> 
             <a href="/summary.html"><i data-lucide="list-checks"></i> View Bills & Integrity</a>
             <a href="/invoices.html"><i data-lucide="receipt"></i> Invoices</a>
@@ -31,19 +99,43 @@
         </nav>
 
         <main class="content">
-            <h2>Batch Entry</h2>
-            <button onclick="submitMultiBills()" class="btn-primary mb-1"><i data-lucide="save"></i> Save 50 Bills</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2>Batch Entry</h2>
+            </div>
+            
             <div class="table-wrapper">
                 <table>
-                    <thead><tr><th>Bill No</th><th>Date</th><th>Vehicle No</th><th>Fuel Type</th><th>Amount (₹)</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th class="col-bill">Bill No</th>
+                            <th class="col-date">Date</th>
+                            <th class="col-veh">Vehicle No</th>
+                            <th class="col-fuel">Fuel Type</th>
+                            <th class="col-qty">Qty (L)</th>
+                            <th class="col-rate">Rate (₹)</th>
+                            <th class="col-amt">Amount (₹)</th>
+                        </tr>
+                    </thead>
                     <tbody id="multiEntryBody"></tbody>
                 </table>
             </div>
+            
+            <button onclick="submitMultiBills()" class="btn-primary" style="width: 100%; max-width: 300px; padding: 12px; font-size: 1rem; margin-top: 10px;">
+                <i data-lucide="save"></i> Save 50 Bills
+            </button>
         </main>
     </div>
 
-    <!-- Inject Modal Template -->
-    <div id="customModal" class="modal-overlay"><div class="modal-box"><div class="modal-header"><h3 id="modalTitle"></h3></div><div class="modal-body"><p id="modalMessage"></p><input type="text" id="modalInput" style="display:none;"></div><div class="modal-footer"><button id="modalBtnCancel" class="btn-outline" style="display:none;" onclick="closeModal(false)">Cancel</button><button id="modalBtnConfirm" class="btn-primary" onclick="closeModal(true)">OK</button></div></div></div>
+    <div id="customModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header"><h3 id="modalTitle"></h3></div>
+            <div class="modal-body"><p id="modalMessage"></p><input type="text" id="modalInput" style="display:none;"></div>
+            <div class="modal-footer">
+                <button id="modalBtnCancel" class="btn-outline" style="display:none;" onclick="closeModal(false)">Cancel</button>
+                <button id="modalBtnConfirm" class="btn-primary" onclick="closeModal(true)">OK</button>
+            </div>
+        </div>
+    </div>
 
     <script src="/js/api.js"></script>
     <script src="/js/auth.js"></script>

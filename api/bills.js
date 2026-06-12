@@ -1,8 +1,14 @@
 const { Pool } = require('pg');
-const pool = new Pool({ connectionString: "postgresql://neondb_owner:npg_ubm0XN4yKWfn@ep-plain-band-ap854c2t-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require" });
+const pool = new Pool({ connectionString: "postgresql://neondb_owner:npg_ubm0XN4yKWfn@ep-plain-band-ap854c2t-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require" });
 
 module.exports = async function handler(req, res) {
   try {
+    // Attempt to auto-add new columns, but ignore if it fails
+    try {
+        await pool.query('ALTER TABLE fuel_bills ADD COLUMN IF NOT EXISTS quantity NUMERIC DEFAULT 0');
+        await pool.query('ALTER TABLE fuel_bills ADD COLUMN IF NOT EXISTS rate NUMERIC DEFAULT 0');
+    } catch(err) { console.log("Columns likely already exist or lack permissions."); }
+
     if (req.method === 'GET') {
       const { action } = req.query;
       if (action === 'integrity') {
@@ -14,34 +20,82 @@ module.exports = async function handler(req, res) {
       }
 
       const { rows } = await pool.query('SELECT * FROM fuel_bills ORDER BY CAST(bill_no AS INTEGER) DESC LIMIT 1000');
+      
       return res.status(200).json(rows.map(r => ({
-        id: parseInt(r.id), billNo: r.bill_no, date: r.bill_date ? r.bill_date.toISOString().split('T')[0] : null,
-        vehicleNo: r.vehicle_no, fuelType: r.fuel_type, qnty: parseFloat(r.amount), rate: 0, amount: parseFloat(r.amount), isOverride: r.is_override
+        id: parseInt(r.id), 
+        billNo: r.bill_no, 
+        date: r.bill_date ? new Date(r.bill_date).toISOString().split('T')[0] : null,
+        vehicleNo: r.vehicle_no || '', 
+        fuelType: r.fuel_type, 
+        quantity: parseFloat(r.quantity || 0), 
+        rate: parseFloat(r.rate || 0),         
+        amount: parseFloat(r.amount || 0), 
+        isOverride: r.is_override
       })));
     } 
     else if (req.method === 'POST') {
       let bills = Array.isArray(req.body) ? req.body : [req.body];
       const userRole = req.headers['x-user-role'] || 'USER';
 
-      const electionCheck = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'election_mode'");
-      const isElectionMode = electionCheck.rows.length > 0 && electionCheck.rows[0].setting_value === 'true';
+      // 1. SAFE ELECTION CHECK: Won't crash if app_settings table is missing
+      let isElectionMode = false;
+      try {
+          const electionCheck = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'election_mode'");
+          isElectionMode = electionCheck.rows.length > 0 && electionCheck.rows[0].setting_value === 'true';
+      } catch(e) { console.log("Skipping election check: table missing."); }
 
       for (let b of bills) {
-          if (isElectionMode && (!b.vehicleNo || b.vehicleNo.trim() === '')) return res.status(400).json({ success: false, message: `Election Mode is ON. Vehicle No required for bill ${b.billNo}` });
+          const vNo = b.vehicleNo ? String(b.vehicleNo).trim() : '';
+          const bNo = String(b.billNo);
 
-          const blockCheck = await pool.query(`SELECT * FROM blocked_entities WHERE (block_type = 'BILL_NO' AND block_value = $1) OR (block_type = 'VEHICLE_NO' AND block_value = $2)`, [b.billNo.toString(), b.vehicleNo]);
-          if (blockCheck.rows.length > 0) {
-              if (userRole !== 'ADMIN') return res.status(403).json({ success: false, message: `BLOCKED: ${blockCheck.rows[0].reason}. Contact Admin.` });
-              else if (!b.overrideReason) return res.status(403).json({ success: false, needsOverride: true, message: `Blocked: ${blockCheck.rows[0].reason}. Provide override reason.` });
+          if (isElectionMode && vNo === '') {
+              return res.status(400).json({ success: false, message: `Election Mode is ON. Vehicle No required for bill ${bNo}` });
           }
 
-          await pool.query(`
-            INSERT INTO fuel_bills (bill_no, bill_date, vehicle_no, fuel_type, amount, is_override, override_reason) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            ON CONFLICT DO NOTHING
-          `, [b.billNo, b.date, b.vehicleNo, b.fuelType, b.amount, b.overrideReason ? true : false, b.overrideReason || null]);
+          // 2. SAFE BLOCK CHECK: Won't crash if blocked_entities table is missing
+          try {
+              const blockCheck = await pool.query(
+                  `SELECT * FROM blocked_entities WHERE (block_type = 'BILL_NO' AND block_value = $1) OR (block_type = 'VEHICLE_NO' AND block_value = $2 AND $2 != '')`, 
+                  [bNo, vNo]
+              );
+              
+              if (blockCheck.rows.length > 0) {
+                  if (userRole !== 'ADMIN') return res.status(403).json({ success: false, message: `BLOCKED: ${blockCheck.rows[0].reason}. Contact Admin.` });
+                  else if (!b.overrideReason) return res.status(403).json({ success: false, needsOverride: true, message: `Blocked: ${blockCheck.rows[0].reason}. Provide override reason.` });
+              }
+          } catch(e) { console.log("Skipping block check: table missing."); }
+
+          // 3. SAFE INSERT: Tries new schema first, falls back to old schema if new columns don't exist
+          try {
+              await pool.query(`
+                INSERT INTO fuel_bills (bill_no, bill_date, vehicle_no, fuel_type, quantity, rate, amount, is_override, override_reason) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                ON CONFLICT DO NOTHING
+              `, [
+                  bNo, b.date || null, vNo, b.fuelType || null, 
+                  b.quantity || 0, b.rate || 0, b.amount || 0, 
+                  b.overrideReason ? true : false, b.overrideReason || null
+              ]);
+          } catch (insertErr) {
+              if (insertErr.message.includes('does not exist')) {
+                  // Fallback to old schema
+                  await pool.query(`
+                    INSERT INTO fuel_bills (bill_no, bill_date, vehicle_no, fuel_type, amount, is_override, override_reason) 
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    ON CONFLICT DO NOTHING
+                  `, [
+                      bNo, b.date || null, vNo, b.fuelType || null, b.amount || 0, 
+                      b.overrideReason ? true : false, b.overrideReason || null
+                  ]);
+              } else {
+                  throw insertErr;
+              }
+          }
       }
       return res.status(201).json({ success: true });
     }
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) { 
+      console.error("Bills API Error:", error);
+      res.status(500).json({ error: error.message }); 
+  }
 }

@@ -7,8 +7,13 @@ module.exports = async function handler(req, res) {
         if (req.method === 'GET') {
             const { date, product } = req.query;
             if (date && product) {
-                // Fetch specific rate for the entry page
-                const { rows } = await pool.query('SELECT rate FROM daily_prices WHERE price_date = $1 AND product = $2', [date, product]);
+                // Fetch specific rate for the entry page:
+                // Looks for the price on the EXACT date, or the closest PREVIOUS date if not found.
+                const { rows } = await pool.query(
+                    'SELECT rate FROM daily_prices WHERE price_date <= $1 AND product = $2 ORDER BY price_date DESC LIMIT 1', 
+                    [date, product]
+                );
+                
                 return res.status(200).json({ rate: rows.length > 0 ? parseFloat(rows[0].rate) : 0 });
             } else {
                 // Fetch recent prices for Admin table

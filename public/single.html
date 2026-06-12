@@ -100,7 +100,7 @@
             
             if(!date) return;
             
-            rateInput.value = '...'; // loading indicator
+            rateInput.value = ''; // loading indicator
             const res = await apiFetch(`/api/prices?date=${date}&product=${product}`);
             
             if(res && res.rate > 0) {

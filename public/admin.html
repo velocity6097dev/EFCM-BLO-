@@ -8,6 +8,27 @@
     <link href="/css/dashboard.css" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
+        /* --- PRO ADMIN DASHBOARD STYLES --- */
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-group { margin-bottom: 1.25rem; }
+        .form-group label {
+            display: block; margin-bottom: 0.4rem; font-weight: 600; color: #475569; font-size: 0.9rem;
+        }
+        .form-group input, .form-group select {
+            width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px;
+            font-size: 1rem; box-sizing: border-box; transition: all 0.2s;
+        }
+        .form-group input:focus, .form-group select:focus {
+            border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+        }
+
+        /* Block List Styling */
         .block-list-item {
             display: flex; justify-content: space-between; align-items: center;
             padding: 12px; border-bottom: 1px solid var(--border-light);
@@ -16,6 +37,22 @@
         .block-info { display: flex; flex-direction: column; gap: 4px; }
         .block-info strong { color: var(--danger-dark); font-size: 1.05rem; }
         .block-info span { color: var(--text-muted); font-size: 0.85rem; }
+
+        /* Pro Table Styling */
+        .table-wrapper {
+            width: 100%; overflow-x: auto; background: #fff; border-radius: 8px;
+            border: 1px solid var(--border-light); margin-top: 1rem;
+        }
+        table { width: 100%; min-width: 500px; border-collapse: collapse; }
+        th { background: #f8fafc; padding: 12px 16px; text-align: left; font-size: 0.85rem; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+        tr:hover td { background-color: #f8fafc; }
+        
+        .edit-btn {
+            background: none; border: none; color: var(--primary); cursor: pointer;
+            padding: 6px; border-radius: 4px; transition: 0.2s;
+        }
+        .edit-btn:hover { background: #e0f2fe; color: #0284c7; }
     </style>
 </head>
 <body>
@@ -26,7 +63,7 @@
             <h1 style="display: inline-block;">BAHAR SERVICE STATION</h1>
             <span id="roleBadge" class="badge badge-info" style="margin-left:10px;"></span>
         </div>
-        <button onclick="logout()" class="btn-danger"><i data-lucide="log-out"></i> Logout</button>
+        <button type="button" onclick="logout()" class="btn-danger"><i data-lucide="log-out"></i> Logout</button>
     </header>
     
     <div class="app-body">
@@ -35,116 +72,289 @@
             <a href="/batch.html"><i data-lucide="layers"></i> Batch Entry (50)</a>
             <a href="/summary.html"><i data-lucide="list-checks"></i> View Bills & Integrity</a>
             <a href="/invoices.html"><i data-lucide="receipt"></i> Invoices</a>
-            <!-- Admin is active! -->
             <a href="/admin.html" class="active" id="adminTabBtn"><i data-lucide="settings"></i> Admin Panel</a>
         </nav>
 
         <main class="content">
-            <h2><i data-lucide="settings" style="vertical-align: -3px; color: var(--text-muted);"></i> Admin Settings & Blocks</h2>
+            <h2 style="margin-bottom: 1.5rem;"><i data-lucide="settings" style="vertical-align: -3px; color: var(--text-muted);"></i> Admin Control Panel</h2>
             
-            <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start;">
-                <!-- Left Column: Settings & Blocking -->
-                <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 1.5rem;">
-                    
-                    <!-- NEW: Daily Price Settings -->
-                    <div class="card" style="margin-bottom: 0;">
-                        <h3 style="margin-top: 0; display: flex; align-items: center; gap: 8px;">
-                            <i data-lucide="indian-rupee" style="color: var(--success);"></i> Daily Price Settings
-                        </h3>
-                        <div style="display: flex; flex-direction: column; gap: 1rem;">
-                            <div>
-                                <label>Date</label>
-                                <input type="date" id="priceDate">
-                            </div>
-                            <div>
-                                <label>Product</label>
-                                <select id="priceProduct">
-                                    <option value="Diesel">Diesel</option>
-                                    <option value="Petrol">Petrol</option>
-                                    <option value="Lubricant">Lubricant</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label>Rate (per Ltr/Unit)</label>
-                                <input type="number" step="0.01" id="priceRate" placeholder="e.g. 89.90">
-                            </div>
-                            <button onclick="setDailyPrice()" class="btn-primary mt-1">
-                                <i data-lucide="save"></i> Save Price
-                            </button>
-                        </div>
+            <div class="admin-grid">
+                
+                <!-- CARD 1: Price Settings -->
+                <div class="card" style="margin-bottom: 0;">
+                    <h3 style="margin-top: 0; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                        <i data-lucide="indian-rupee" style="color: var(--success);"></i> Set Daily Price
+                    </h3>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label>Date</label>
+                        <input type="date" id="priceDate">
                     </div>
-
-                    <div class="card" style="margin-bottom: 0;">
-                        <h3 style="margin-top: 0; display: flex; align-items: center; gap: 8px;">
-                            <i data-lucide="gavel" style="color: var(--primary);"></i> Election Mode
-                        </h3>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">Forces "Vehicle No" to be mandatory for all bill entries across the system.</p>
-                        <select id="electionMode" onchange="updateSetting('election_mode', this.value)">
-                            <option value="false">OFF (Normal Mode)</option>
-                            <option value="true">ON (Election Mode)</option>
+                    <div class="form-group">
+                        <label>Product</label>
+                        <select id="priceProduct">
+                            <option value="Diesel">HSD (Diesel)</option>
+                            <option value="Petrol">MS (Petrol)</option>
+                            <option value="Lubricant">Lubricant</option>
                         </select>
                     </div>
-
-                    <div class="card" style="margin-bottom: 0;">
-                        <h3 style="margin-top: 0; display: flex; align-items: center; gap: 8px;">
-                            <i data-lucide="ban" style="color: var(--danger);"></i> Block Entity
-                        </h3>
-                        <div style="display: flex; flex-direction: column; gap: 1rem;">
-                            <div>
-                                <label>Target (Bill No or Vehicle No)</label>
-                                <input type="text" id="blockValue" placeholder="e.g. WB-11-2222 or 1050">
-                            </div>
-                            <div>
-                                <label>Block Type</label>
-                                <select id="blockType">
-                                    <option value="VEHICLE_NO">Vehicle No</option>
-                                    <option value="BILL_NO">Bill No</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label>Reason for Blocking</label>
-                                <input type="text" id="blockReason" placeholder="e.g. Pending payment">
-                            </div>
-                            <button onclick="blockEntity()" class="btn-danger mt-1">
-                                <i data-lucide="shield-ban"></i> Block Now
-                            </button>
-                        </div>
+                    <div class="form-group">
+                        <label>Rate (per Ltr/Unit)</label>
+                        <input type="number" step="0.01" id="priceRate" placeholder="e.g. 89.90">
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button type="button" onclick="saveNewPrice()" class="btn-primary" style="flex: 2;">
+                            <i data-lucide="save"></i> Save Price
+                        </button>
+                        <button type="button" onclick="openPriceModal()" class="btn-outline" style="flex: 1;">
+                            <i data-lucide="table"></i> View Prices
+                        </button>
                     </div>
                 </div>
 
-                <!-- Right Column: Blocked List -->
-                <div class="card" style="flex: 2; min-width: 350px; margin-bottom: 0;">
-                    <h3 style="margin-top: 0; display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="shield-alert" style="color: var(--warning);"></i> Active Blocks
-                    </h3>
-                    <div id="blockList" style="margin-top: 15px;">
-                        <!-- JS injects blocks here -->
+                <!-- CARD 2: Election Mode & System Blocks -->
+                <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column; gap: 20px;">
+                    
+                    <!-- Election Mode Section -->
+                    <div>
+                        <h3 style="margin-top: 0; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                            <i data-lucide="gavel" style="color: var(--primary);"></i> Election Mode
+                        </h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 10px 0;">Forces "Vehicle No" to be mandatory for all bill entries.</p>
+                        
+                        <div style="display: flex; gap: 10px; align-items: flex-end;">
+                            <div class="form-group" style="margin-bottom: 0; flex: 2;">
+                                <select id="electionMode">
+                                    <option value="false">OFF (Normal Mode)</option>
+                                    <option value="true">ON (Election Mode)</option>
+                                </select>
+                            </div>
+                            <button type="button" onclick="saveElectionMode()" class="btn-primary" style="flex: 1; padding: 10px;">
+                                <i data-lucide="check-circle"></i> Save
+                            </button>
+                        </div>
                     </div>
+
+                    <div style="border-top: 1px dashed #e2e8f0;"></div>
+
+                    <!-- Block Entity Section -->
+                    <div>
+                        <h3 style="margin-top: 0; display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
+                            <i data-lucide="ban" style="color: var(--danger);"></i> Block Target
+                        </h3>
+                        <div class="form-group">
+                            <label>Target (Bill No or Vehicle No)</label>
+                            <input type="text" id="blockValue" placeholder="e.g. WB-11-2222 or 1050">
+                        </div>
+                        <div class="form-group" style="display: flex; gap: 10px;">
+                            <div style="flex: 1;">
+                                <label>Type</label>
+                                <select id="blockType">
+                                    <option value="VEHICLE_NO">Vehicle</option>
+                                    <option value="BILL_NO">Bill No</option>
+                                </select>
+                            </div>
+                            <div style="flex: 2;">
+                                <label>Reason</label>
+                                <input type="text" id="blockReason" placeholder="Pending payment...">
+                            </div>
+                        </div>
+                        <button type="button" onclick="blockEntity()" class="btn-danger w-100">
+                            <i data-lucide="shield-ban"></i> Block Target
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 3: Active Blocks -->
+            <div class="card" style="margin-bottom: 0;">
+                <h3 style="margin-top: 0; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="shield-alert" style="color: var(--warning);"></i> Active System Blocks
+                </h3>
+                <div id="blockList" style="margin-top: 15px;">
+                    <!-- JS injects blocks here -->
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Inject Modal Template -->
-    <div id="customModal" class="modal-overlay"><div class="modal-box"><div class="modal-header"><h3 id="modalTitle"></h3></div><div class="modal-body"><p id="modalMessage"></p><input type="text" id="modalInput" style="display:none;"></div><div class="modal-footer"><button id="modalBtnCancel" class="btn-outline" style="display:none;" onclick="closeModal(false)">Cancel</button><button id="modalBtnConfirm" class="btn-primary" onclick="closeModal(true)">OK</button></div></div></div>
+    <!-- 1. Custom Prompt/Alert Modal (High Z-Index) -->
+    <div id="customModal" class="modal-overlay" style="z-index: 10000;">
+        <div class="modal-box">
+            <div class="modal-header"><h3 id="modalTitle"></h3></div>
+            <div class="modal-body"><p id="modalMessage"></p><input type="text" id="modalInput" style="display:none;"></div>
+            <div class="modal-footer">
+                <button type="button" id="modalBtnCancel" class="btn-outline" style="display:none;" onclick="closeModal(false)">Cancel</button>
+                <button type="button" id="modalBtnConfirm" class="btn-primary" onclick="closeModal(true)">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. The Large Excel-Style Price History Modal (Aggregated View) -->
+    <div id="priceHistoryModal" style="display:none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); align-items: center; justify-content: center; z-index: 9000; backdrop-filter: blur(4px);">
+        <div style="background: #fff; width: 90%; max-width: 800px; border-radius: 10px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); display: flex; flex-direction: column; max-height: 85vh;">
+            
+            <div style="padding: 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="table" style="color: var(--primary);"></i> Price History Directory
+                </h3>
+                <button type="button" onclick="closePriceModal()" style="background: none; border: none; cursor: pointer; color: #64748b; padding: 5px;"><i data-lucide="x"></i></button>
+            </div>
+            
+            <div style="padding: 20px; overflow-y: auto; flex: 1;">
+                <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 10px;">Click the pencil icon to edit past rates. Changes update the database instantly.</p>
+                <div class="table-wrapper" style="margin-top: 0;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="position: sticky; top: 0; background: #f8fafc; z-index: 10; width: 130px;">Date</th>
+                                <th style="position: sticky; top: 0; background: #f8fafc; z-index: 10;">HSD Rate (Diesel)</th>
+                                <th style="position: sticky; top: 0; background: #f8fafc; z-index: 10;">MS Rate (Petrol)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="priceHistoryBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="/js/api.js"></script>
     <script src="/js/auth.js"></script>
     <script src="/js/layout.js"></script>
     <script src="/js/settings.js"></script>
     <script>
-        // Security Check: Kick out non-admins immediately
         checkAuth();
-        if(localStorage.getItem('role') !== 'ADMIN') {
-            window.location.href = '/single.html';
-        }
-
+        if(localStorage.getItem('role') !== 'ADMIN') window.location.href = '/single.html';
         document.getElementById('roleBadge').innerText = localStorage.getItem('role');
+        document.getElementById('priceDate').valueAsDate = new Date(); // Default today
         
         window.onload = () => { 
             lucide.createIcons();
             loadSettings(); 
         };
+
+        // --- ELECTION MODE SAVE FUNCTION ---
+        function saveElectionMode() {
+            const val = document.getElementById('electionMode').value;
+            updateSetting('election_mode', val);
+        }
+
+        // --- PRICE HISTORY MODAL LOGIC ---
+        function openPriceModal() {
+            document.getElementById('priceHistoryModal').style.display = 'flex';
+            loadPriceHistory();
+        }
+
+        function closePriceModal() {
+            document.getElementById('priceHistoryModal').style.display = 'none';
+        }
+
+        async function loadPriceHistory() {
+            const tbody = document.getElementById('priceHistoryBody');
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 2rem;">Loading prices...</td></tr>`;
+
+            try {
+                const res = await apiFetch('/api/prices');
+                tbody.innerHTML = '';
+
+                if (res && res.length > 0) {
+                    // Group prices by Date to combine HSD and MS into a single row
+                    const groupedPrices = {};
+
+                    res.forEach(item => {
+                        // FIX TIMEZONE ISSUE: Parse exact local date components securely to stop 11th/12th shifting
+                        const dObj = new Date(item.price_date);
+                        const yyyy = dObj.getFullYear();
+                        const mm = String(dObj.getMonth() + 1).padStart(2, '0');
+                        const dd = String(dObj.getDate()).padStart(2, '0');
+                        const dateStr = `${yyyy}-${mm}-${dd}`; // Clean YYYY-MM-DD format
+                        
+                        if (!groupedPrices[dateStr]) {
+                            groupedPrices[dateStr] = { date: dateStr, displayDate: `${dd}-${mm}-${yyyy}`, HSD: '-', MS: '-' };
+                        }
+                        
+                        if (item.product === 'Diesel') groupedPrices[dateStr].HSD = item.rate;
+                        if (item.product === 'Petrol') groupedPrices[dateStr].MS = item.rate;
+                    });
+
+                    // Convert to array and sort by Date (descending - newest first)
+                    const sortedDates = Object.values(groupedPrices).sort((a, b) => b.date.localeCompare(a.date));
+
+                    sortedDates.forEach(row => {
+                        const hsdText = row.HSD !== '-' ? `₹${parseFloat(row.HSD).toFixed(2)}` : `<span style="color:#cbd5e1">N/A</span>`;
+                        const msText = row.MS !== '-' ? `₹${parseFloat(row.MS).toFixed(2)}` : `<span style="color:#cbd5e1">N/A</span>`;
+
+                        tbody.innerHTML += `
+                            <tr>
+                                <td><strong>${row.displayDate}</strong></td>
+                                <td>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="color: #10b981; font-weight: 600;">${hsdText}</span>
+                                        <button type="button" onclick="triggerExcelEdit('${row.date}', 'Diesel', '${row.HSD}')" class="edit-btn" title="Edit Diesel">
+                                            <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="color: #0ea5e9; font-weight: 600;">${msText}</span>
+                                        <button type="button" onclick="triggerExcelEdit('${row.date}', 'Petrol', '${row.MS}')" class="edit-btn" title="Edit Petrol">
+                                            <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    lucide.createIcons();
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#94a3b8; padding: 2rem;">No prices recorded yet.</td></tr>`;
+                }
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:red; padding: 2rem;">Error loading prices. Check console.</td></tr>`;
+                console.error("Price Load Error:", err);
+            }
+        }
+
+        async function triggerExcelEdit(date, product, currentRate) {
+            // Keep the prompt string clean for editing
+            const displayRate = currentRate !== '-' ? currentRate : '';
+            const newRate = await customPrompt(`Enter new rate for ${product} on ${date}:`, "Edit Rate", displayRate);
+            
+            if(newRate !== null && newRate.trim() !== '') {
+                const parsedRate = parseFloat(newRate);
+                if(isNaN(parsedRate) || parsedRate <= 0) {
+                    customAlert("Please enter a valid number greater than 0.", "Invalid Rate");
+                    return;
+                }
+
+                const res = await apiFetch('/api/prices', 'POST', { date: date, product: product, rate: parsedRate });
+                if(res.success) {
+                    loadPriceHistory(); // Refresh table inside modal instantly
+                } else {
+                    customAlert(res.message, "Error Updating");
+                }
+            }
+        }
+
+        async function saveNewPrice() {
+            const date = document.getElementById('priceDate').value;
+            const product = document.getElementById('priceProduct').value;
+            const rate = parseFloat(document.getElementById('priceRate').value);
+
+            if(!date || !product || isNaN(rate)) return customAlert("Please fill all price fields correctly.", "Error");
+
+            const res = await apiFetch('/api/prices', 'POST', { date, product, rate });
+            if(res.success) {
+                document.getElementById('priceRate').value = '';
+                customAlert(`Price saved successfully.`, "Success");
+            } else {
+                customAlert(res.message, "Error");
+            }
+        }
     </script>
 </body>
 </html>
