@@ -3,11 +3,16 @@ const pool = new Pool({ connectionString: "postgresql://neondb_owner:npg_ubm0XN4
 
 module.exports = async function handler(req, res) {
   try {
-    // Attempt to auto-add new columns, but ignore if it fails
+    // --- ADVANCED AUTO-MIGRATION ---
     try {
+        await pool.query('ALTER TABLE fuel_bills ADD COLUMN IF NOT EXISTS fuel_type VARCHAR(50)');
         await pool.query('ALTER TABLE fuel_bills ADD COLUMN IF NOT EXISTS quantity NUMERIC DEFAULT 0');
         await pool.query('ALTER TABLE fuel_bills ADD COLUMN IF NOT EXISTS rate NUMERIC DEFAULT 0');
-    } catch(err) { console.log("Columns likely already exist or lack permissions."); }
+        await pool.query('ALTER TABLE fuel_bills ADD COLUMN IF NOT EXISTS is_override BOOLEAN DEFAULT FALSE');
+        await pool.query('ALTER TABLE fuel_bills ADD COLUMN IF NOT EXISTS override_reason TEXT');
+    } catch(err) { 
+        console.log("Migration check skipped."); 
+    }
 
     if (req.method === 'GET') {
       const { action } = req.query;
@@ -37,12 +42,11 @@ module.exports = async function handler(req, res) {
       let bills = Array.isArray(req.body) ? req.body : [req.body];
       const userRole = req.headers['x-user-role'] || 'USER';
 
-      // 1. SAFE ELECTION CHECK: Won't crash if app_settings table is missing
       let isElectionMode = false;
       try {
           const electionCheck = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'election_mode'");
           isElectionMode = electionCheck.rows.length > 0 && electionCheck.rows[0].setting_value === 'true';
-      } catch(e) { console.log("Skipping election check: table missing."); }
+      } catch(e) {}
 
       for (let b of bills) {
           const vNo = b.vehicleNo ? String(b.vehicleNo).trim() : '';
@@ -52,7 +56,6 @@ module.exports = async function handler(req, res) {
               return res.status(400).json({ success: false, message: `Election Mode is ON. Vehicle No required for bill ${bNo}` });
           }
 
-          // 2. SAFE BLOCK CHECK: Won't crash if blocked_entities table is missing
           try {
               const blockCheck = await pool.query(
                   `SELECT * FROM blocked_entities WHERE (block_type = 'BILL_NO' AND block_value = $1) OR (block_type = 'VEHICLE_NO' AND block_value = $2 AND $2 != '')`, 
@@ -63,32 +66,36 @@ module.exports = async function handler(req, res) {
                   if (userRole !== 'ADMIN') return res.status(403).json({ success: false, message: `BLOCKED: ${blockCheck.rows[0].reason}. Contact Admin.` });
                   else if (!b.overrideReason) return res.status(403).json({ success: false, needsOverride: true, message: `Blocked: ${blockCheck.rows[0].reason}. Provide override reason.` });
               }
-          } catch(e) { console.log("Skipping block check: table missing."); }
+          } catch(e) {}
 
-          // 3. SAFE INSERT: Tries new schema first, falls back to old schema if new columns don't exist
+          // --- FIXED DUPLICATE LOGIC ---
+          // Instead of ON CONFLICT, we manually check if the bill exists to bypass constraint requirements
+          const duplicateCheck = await pool.query('SELECT bill_no FROM fuel_bills WHERE bill_no = $1', [bNo]);
+          if (duplicateCheck.rows.length > 0) {
+              continue; // Skip this bill entirely, it already exists (Mimics DO NOTHING)
+          }
+
           try {
               await pool.query(`
                 INSERT INTO fuel_bills (bill_no, bill_date, vehicle_no, fuel_type, quantity, rate, amount, is_override, override_reason) 
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                ON CONFLICT DO NOTHING
               `, [
                   bNo, b.date || null, vNo, b.fuelType || null, 
                   b.quantity || 0, b.rate || 0, b.amount || 0, 
                   b.overrideReason ? true : false, b.overrideReason || null
               ]);
           } catch (insertErr) {
-              if (insertErr.message.includes('does not exist')) {
-                  // Fallback to old schema
+              if (insertErr.message.includes('does not exist') || insertErr.message.includes('quantity')) {
+                  // Fallback for older database schema
                   await pool.query(`
                     INSERT INTO fuel_bills (bill_no, bill_date, vehicle_no, fuel_type, amount, is_override, override_reason) 
                     VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    ON CONFLICT DO NOTHING
                   `, [
                       bNo, b.date || null, vNo, b.fuelType || null, b.amount || 0, 
                       b.overrideReason ? true : false, b.overrideReason || null
                   ]);
               } else {
-                  throw insertErr;
+                  throw insertErr; 
               }
           }
       }
@@ -96,6 +103,6 @@ module.exports = async function handler(req, res) {
     }
   } catch (error) { 
       console.error("Bills API Error:", error);
-      res.status(500).json({ error: error.message }); 
+      res.status(500).json({ success: false, message: error.message || "Database connection error." }); 
   }
 }

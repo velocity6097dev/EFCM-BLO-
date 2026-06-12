@@ -63,6 +63,7 @@
         </main>
     </div>
 
+    <!-- Inject Modal Template -->
     <div id="customModal" class="modal-overlay">
         <div class="modal-box">
             <div class="modal-header"><h3 id="modalTitle">Notice</h3></div>
@@ -84,13 +85,8 @@
         if(localStorage.getItem('role') === 'ADMIN') document.getElementById('adminTabBtn').style.display = 'flex';
         document.getElementById('se-date').valueAsDate = new Date();
 
-        // --- Auto-Calculation Logic ---
-        
-        // Add event listeners to detect date or fuel changes
         document.getElementById('se-date').addEventListener('change', fetchDailyRate);
         document.getElementById('se-fuelType').addEventListener('change', fetchDailyRate);
-        
-        // Run it once on page load to get today's price
         window.addEventListener('DOMContentLoaded', fetchDailyRate);
         
         async function fetchDailyRate() {
@@ -100,45 +96,38 @@
             
             if(!date) return;
             
-            rateInput.value = ''; // loading indicator
+            rateInput.value = ''; // FIXED: Removed "..." text to stop the HTML5 Number Error
             const res = await apiFetch(`/api/prices?date=${date}&product=${product}`);
             
             if(res && res.rate > 0) {
                 rateInput.value = res.rate;
-                calculateAmount(); // Recalculate if user already typed a quantity
+                calculateAmount(); 
             } else {
                 rateInput.value = 0;
             }
         }
         
-        // Auto-calculates Amount when Qty is typed
         function calculateAmount() {
             const qnty = parseFloat(document.getElementById('se-qnty').value) || 0;
             const rate = parseFloat(document.getElementById('se-rate').value) || 0;
-            if(rate > 0) {
-                document.getElementById('se-amount').value = (qnty * rate).toFixed(2);
-            }
+            if(rate > 0) document.getElementById('se-amount').value = (qnty * rate).toFixed(2);
         }
         
-        // Auto-calculates Qty when Amount is typed (e.g. Customer asks for ₹500 petrol)
         function calculateQuantity() {
             const amount = parseFloat(document.getElementById('se-amount').value) || 0;
             const rate = parseFloat(document.getElementById('se-rate').value) || 0;
-            if(rate > 0) {
-                document.getElementById('se-qnty').value = (amount / rate).toFixed(2);
-            }
+            if(rate > 0) document.getElementById('se-qnty').value = (amount / rate).toFixed(2);
         }
 
-        // --- Submission Logic ---
         async function submitSingleBill() {
             const billData = { 
                 billNo: document.getElementById('se-billNo').value, 
                 date: document.getElementById('se-date').value, 
                 vehicleNo: document.getElementById('se-vehicleNo').value, 
                 fuelType: document.getElementById('se-fuelType').value, 
-                quantity: parseFloat(document.getElementById('se-qnty').value), // Passing quantity to backend
-                rate: parseFloat(document.getElementById('se-rate').value),     // Passing rate to backend
-                amount: parseFloat(document.getElementById('se-amount').value) 
+                quantity: parseFloat(document.getElementById('se-qnty').value) || 0, 
+                rate: parseFloat(document.getElementById('se-rate').value) || 0,     
+                amount: parseFloat(document.getElementById('se-amount').value) || 0
             };
             
             if(!billData.billNo || !billData.amount) return customAlert("Bill No and Amount are required!", "Error");
@@ -148,7 +137,7 @@
                 await customAlert("Bill Added Successfully!", "Success");
                 document.getElementById('se-billNo').value = parseInt(billData.billNo) + 1; 
                 document.getElementById('se-vehicleNo').value = ''; 
-                document.getElementById('se-qnty').value = ''; // Clear Quantity Field
+                document.getElementById('se-qnty').value = ''; 
                 document.getElementById('se-amount').value = '';
             } else {
                 if(res.needsOverride) {
@@ -163,9 +152,12 @@
                             document.getElementById('se-qnty').value = ''; 
                             document.getElementById('se-amount').value = '';
                         }
-                        else customAlert(retryRes.message, "Error");
+                        else customAlert(retryRes.message || retryRes.error || "Override Failed", "Error");
                     }
-                } else customAlert(res.message, "Error");
+                } else {
+                    // FIXED: Fallback added so it never says "undefined" again
+                    customAlert(res.message || res.error || "An unknown server error occurred.", "Error");
+                }
             }
         }
     </script>
