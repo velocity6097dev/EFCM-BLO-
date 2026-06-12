@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Entry - Bahar Service Station</title>
+    <link href="/css/global.css" rel="stylesheet">
+    <link href="/css/dashboard.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <header>
+        <!-- SAME HEADER AS SINGLE.HTML -->
+        <div class="brand">
+            <button class="mobile-toggle" onclick="toggleSidebar()"><i data-lucide="menu"></i></button>
+            <i data-lucide="fuel" style="color: var(--primary); width: 28px; height: 28px;"></i>
+            <h1 style="display: inline-block;">BAHAR SERVICE STATION</h1>
+            <span id="roleBadge" class="badge badge-info" style="margin-left:10px;"></span>
+        </div>
+        <button onclick="logout()" class="btn-danger"><i data-lucide="log-out"></i> Logout</button>
+    </header>
+    
+    <div class="app-body">
+        <nav class="sidebar" id="appSidebar">
+            <a href="/single.html"><i data-lucide="file-plus-2"></i> Single Entry</a>
+            <!-- Note: Batch is active now! -->
+            <a href="/batch.html" class="active"><i data-lucide="layers"></i> Batch Entry (50)</a> 
+            <a href="/summary.html"><i data-lucide="list-checks"></i> View Bills & Integrity</a>
+            <a href="/invoices.html"><i data-lucide="receipt"></i> Invoices</a>
+            <a href="/admin.html" id="adminTabBtn" style="display:none;"><i data-lucide="settings"></i> Admin Panel</a>
+        </nav>
+
+        <main class="content">
+            <h2>Batch Entry</h2>
+            <button onclick="submitMultiBills()" class="btn-primary mb-1"><i data-lucide="save"></i> Save 50 Bills</button>
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr><th>Bill No</th><th>Date</th><th>Vehicle No</th><th>Fuel Type</th><th>Amount (₹)</th></tr></thead>
+                    <tbody id="multiEntryBody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Inject Modal Template -->
+    <div id="customModal" class="modal-overlay"><div class="modal-box"><div class="modal-header"><h3 id="modalTitle"></h3></div><div class="modal-body"><p id="modalMessage"></p><input type="text" id="modalInput" style="display:none;"></div><div class="modal-footer"><button id="modalBtnCancel" class="btn-outline" style="display:none;" onclick="closeModal(false)">Cancel</button><button id="modalBtnConfirm" class="btn-primary" onclick="closeModal(true)">OK</button></div></div></div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/layout.js"></script>
+    <script src="/js/entry.js"></script>
+    <script>
+        checkAuth();
+        lucide.createIcons();
+        document.getElementById('roleBadge').innerText = localStorage.getItem('role');
+        if(localStorage.getItem('role') === 'ADMIN') document.getElementById('adminTabBtn').style.display = 'flex';
+        generateMultiEntryGrid(); 
+    </script>
+</body>
+</html>

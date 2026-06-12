@@ -56,3 +56,12 @@ CREATE TABLE IF NOT EXISTS invoices (
     end_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS daily_prices (
+    id SERIAL PRIMARY KEY,
+    price_date DATE NOT NULL,
+    product VARCHAR(50) NOT NULL,
+    rate NUMERIC(10, 2) NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(price_date, product)
+);

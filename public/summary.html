@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Bills - Bahar Service Station</title>
+    <link href="/css/global.css" rel="stylesheet">
+    <link href="/css/dashboard.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <header>
+        <div class="brand">
+            <button class="mobile-toggle" onclick="toggleSidebar()"><i data-lucide="menu"></i></button>
+            <i data-lucide="fuel" style="color: var(--primary); width: 28px; height: 28px;"></i>
+            <h1 style="display: inline-block;">BAHAR SERVICE STATION</h1>
+            <span id="roleBadge" class="badge badge-info" style="margin-left:10px;"></span>
+        </div>
+        <button onclick="logout()" class="btn-danger"><i data-lucide="log-out"></i> Logout</button>
+    </header>
+    
+    <div class="app-body">
+        <nav class="sidebar" id="appSidebar">
+            <a href="/single.html"><i data-lucide="file-plus-2"></i> Single Entry</a>
+            <a href="/batch.html"><i data-lucide="layers"></i> Batch Entry (50)</a>
+            <a href="/summary.html" class="active"><i data-lucide="list-checks"></i> View Bills & Integrity</a>
+            <a href="/invoices.html"><i data-lucide="receipt"></i> Invoices</a>
+            <a href="/admin.html" id="adminTabBtn" style="display:none;"><i data-lucide="settings"></i> Admin Panel</a>
+        </nav>
+
+        <main class="content">
+            <h2>View Bills & Integrity Check</h2>
+            
+            <div class="flex-row mb-1">
+                <button onclick="checkIntegrity()" class="btn-danger"><i data-lucide="shield-alert"></i> Check Missing Bills</button>
+                <button onclick="loadAllBills()" class="btn-outline"><i data-lucide="refresh-cw"></i> Refresh List</button>
+            </div>
+            
+            <div id="integrityResult" style="display: none; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-weight: 500;"></div>
+            
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Bill No</th>
+                            <th>Date</th>
+                            <th>Vehicle</th>
+                            <th>Fuel Type</th>
+                            <th>Amount (₹)</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summaryTableBody">
+                        </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <div id="customModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header"><h3 id="modalTitle"></h3></div>
+            <div class="modal-body"><p id="modalMessage"></p><input type="text" id="modalInput" style="display:none;"></div>
+            <div class="modal-footer">
+                <button id="modalBtnCancel" class="btn-outline" style="display:none;" onclick="closeModal(false)">Cancel</button>
+                <button id="modalBtnConfirm" class="btn-primary" onclick="closeModal(true)">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/layout.js"></script>
+    <script>
+        // Authentication & UI Initialization
+        checkAuth();
+        document.getElementById('roleBadge').innerText = localStorage.getItem('role');
+        if(localStorage.getItem('role') === 'ADMIN') document.getElementById('adminTabBtn').style.display = 'flex';
+        
+        // Run on page load
+        window.onload = () => { 
+            lucide.createIcons();
+            loadAllBills(); // Fetch bills immediately when page opens
+        };
+
+        // --- Core Page Logic ---
+        async function loadAllBills() {
+            const tbody = document.getElementById('summaryTableBody');
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="color: var(--text-muted);">Loading bills...</td></tr>';
+            
+            try {
+                const bills = await apiFetch('/api/bills');
+                tbody.innerHTML = '';
+                
+                if (bills.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">No bills entered yet.</td></tr>';
+                    return;
+                }
+
+                bills.forEach(b => {
+                    const statusBadge = b.isOverride 
+                        ? `<span class="badge badge-warning">Overridden</span>` 
+                        : `<span class="badge badge-success">Normal</span>`;
+                        
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${b.billNo}</strong></td>
+                            <td>${b.date || 'N/A'}</td>
+                            <td>${b.vehicleNo || '-'}</td>
+                            <td>${b.fuelType}</td>
+                            <td>₹${b.amount.toFixed(2)}</td>
+                            <td>${statusBadge}</td>
+                        </tr>
+                    `;
+                });
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="color: var(--danger);">Error loading bills. Please try again.</td></tr>';
+            }
+        }
+
+        async function checkIntegrity() {
+            const resultDiv = document.getElementById('integrityResult');
+            resultDiv.style.display = 'flex';
+            resultDiv.style.alignItems = 'center';
+            resultDiv.style.gap = '10px';
+            resultDiv.innerHTML = 'Checking database...';
+            resultDiv.style.backgroundColor = '#f8fafc';
+            resultDiv.style.color = 'var(--text-muted)';
+            resultDiv.style.border = '1px solid var(--border-light)';
+            
+            try {
+                const res = await apiFetch('/api/bills?action=integrity');
+                
+                if(res.missingBills && res.missingBills.length > 0) {
+                    resultDiv.style.backgroundColor = '#fef2f2';
+                    resultDiv.style.color = 'var(--danger-dark)';
+                    resultDiv.style.border = '1px solid #fecaca';
+                    resultDiv.innerHTML = `<i data-lucide="alert-triangle"></i> <div><strong>Missing Bill Numbers:</strong> ${res.missingBills.join(', ')}</div>`;
+                } else {
+                    resultDiv.style.backgroundColor = '#ecfdf5';
+                    resultDiv.style.color = '#065f46';
+                    resultDiv.style.border = '1px solid #a7f3d0';
+                    resultDiv.innerHTML = `<i data-lucide="check-circle-2"></i> <div><strong>Integrity Passed:</strong> No missing bills found in the sequence.</div>`;
+                }
+                lucide.createIcons(); // Render the newly injected icon
+            } catch (error) {
+                resultDiv.innerHTML = "Failed to run integrity check.";
+            }
+        }
+    </script>
+</body>
+</html>

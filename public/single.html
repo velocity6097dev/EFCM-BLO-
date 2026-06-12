@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Single Entry - Bahar Service Station</title>
+    <link href="/css/global.css" rel="stylesheet">
+    <link href="/css/dashboard.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <header>
+        <div class="brand">
+            <button class="mobile-toggle" onclick="toggleSidebar()"><i data-lucide="menu"></i></button>
+            <i data-lucide="fuel" style="color: var(--primary); width: 28px; height: 28px;"></i>
+            <h1 style="display: inline-block;">BAHAR SERVICE STATION</h1>
+            <span id="roleBadge" class="badge badge-info" style="margin-left:10px;"></span>
+        </div>
+        <button onclick="logout()" class="btn-danger"><i data-lucide="log-out"></i> Logout</button>
+    </header>
+    
+    <div class="app-body">
+        <nav class="sidebar" id="appSidebar">
+            <a href="/single.html" class="active"><i data-lucide="file-plus-2"></i> Single Entry</a>
+            <a href="/batch.html"><i data-lucide="layers"></i> Batch Entry (50)</a>
+            <a href="/summary.html"><i data-lucide="list-checks"></i> View Bills & Integrity</a>
+            <a href="/invoices.html"><i data-lucide="receipt"></i> Invoices</a>
+            <a href="/admin.html" id="adminTabBtn" style="display:none;"><i data-lucide="settings"></i> Admin Panel</a>
+        </nav>
+
+        <main class="content">
+            <h2>Single Bill Entry</h2>
+            <div class="card" style="max-width: 500px;">
+                <div style="margin-bottom: 1rem;"><label>Bill No</label><input type="number" id="se-billNo" required></div>
+                <div style="margin-bottom: 1rem;"><label>Date</label><input type="date" id="se-date" required></div>
+                <div style="margin-bottom: 1rem;"><label>Vehicle No</label><input type="text" id="se-vehicleNo" placeholder="WB..."></div>
+                <div style="margin-bottom: 1rem;">
+                    <label>Fuel Type</label>
+                    <select id="se-fuelType">
+                        <option value="Diesel">Diesel</option>
+                        <option value="Petrol">Petrol</option>
+                        <option value="Lubricant">Lubricant</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 1rem; display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>Quantity (Ltrs)</label>
+                        <input type="number" step="0.01" id="se-qnty" required oninput="calculateAmount()">
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Rate (₹)</label>
+                        <input type="number" step="0.01" id="se-rate" readonly style="background: #f1f5f9; color: var(--text-muted);">
+                    </div>
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <label>Total Amount (₹)</label>
+                    <input type="number" step="0.01" id="se-amount" required oninput="calculateQuantity()">
+                </div>
+
+                <button onclick="submitSingleBill()" class="btn-primary w-100"><i data-lucide="plus-circle"></i> Add Bill</button>
+            </div>
+        </main>
+    </div>
+
+    <div id="customModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header"><h3 id="modalTitle">Notice</h3></div>
+            <div class="modal-body"><p id="modalMessage"></p><input type="text" id="modalInput" style="display:none;" placeholder="Reason..."></div>
+            <div class="modal-footer">
+                <button id="modalBtnCancel" class="btn-outline" style="display:none;" onclick="closeModal(false)">Cancel</button>
+                <button id="modalBtnConfirm" class="btn-primary" onclick="closeModal(true)">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/layout.js"></script>
+    <script>
+        checkAuth();
+        lucide.createIcons();
+        document.getElementById('roleBadge').innerText = localStorage.getItem('role');
+        if(localStorage.getItem('role') === 'ADMIN') document.getElementById('adminTabBtn').style.display = 'flex';
+        document.getElementById('se-date').valueAsDate = new Date();
+
+        // --- Auto-Calculation Logic ---
+        
+        // Add event listeners to detect date or fuel changes
+        document.getElementById('se-date').addEventListener('change', fetchDailyRate);
+        document.getElementById('se-fuelType').addEventListener('change', fetchDailyRate);
+        
+        // Run it once on page load to get today's price
+        window.addEventListener('DOMContentLoaded', fetchDailyRate);
+        
+        async function fetchDailyRate() {
+            const date = document.getElementById('se-date').value;
+            const product = document.getElementById('se-fuelType').value;
+            const rateInput = document.getElementById('se-rate');
+            
+            if(!date) return;
+            
+            rateInput.value = '...'; // loading indicator
+            const res = await apiFetch(`/api/prices?date=${date}&product=${product}`);
+            
+            if(res && res.rate > 0) {
+                rateInput.value = res.rate;
+                calculateAmount(); // Recalculate if user already typed a quantity
+            } else {
+                rateInput.value = 0;
+            }
+        }
+        
+        // Auto-calculates Amount when Qty is typed
+        function calculateAmount() {
+            const qnty = parseFloat(document.getElementById('se-qnty').value) || 0;
+            const rate = parseFloat(document.getElementById('se-rate').value) || 0;
+            if(rate > 0) {
+                document.getElementById('se-amount').value = (qnty * rate).toFixed(2);
+            }
+        }
+        
+        // Auto-calculates Qty when Amount is typed (e.g. Customer asks for ₹500 petrol)
+        function calculateQuantity() {
+            const amount = parseFloat(document.getElementById('se-amount').value) || 0;
+            const rate = parseFloat(document.getElementById('se-rate').value) || 0;
+            if(rate > 0) {
+                document.getElementById('se-qnty').value = (amount / rate).toFixed(2);
+            }
+        }
+
+        // --- Submission Logic ---
+        async function submitSingleBill() {
+            const billData = { 
+                billNo: document.getElementById('se-billNo').value, 
+                date: document.getElementById('se-date').value, 
+                vehicleNo: document.getElementById('se-vehicleNo').value, 
+                fuelType: document.getElementById('se-fuelType').value, 
+                quantity: parseFloat(document.getElementById('se-qnty').value), // Passing quantity to backend
+                rate: parseFloat(document.getElementById('se-rate').value),     // Passing rate to backend
+                amount: parseFloat(document.getElementById('se-amount').value) 
+            };
+            
+            if(!billData.billNo || !billData.amount) return customAlert("Bill No and Amount are required!", "Error");
+            const res = await apiFetch('/api/bills', 'POST', [billData]);
+            
+            if(res.success) {
+                await customAlert("Bill Added Successfully!", "Success");
+                document.getElementById('se-billNo').value = parseInt(billData.billNo) + 1; 
+                document.getElementById('se-vehicleNo').value = ''; 
+                document.getElementById('se-qnty').value = ''; // Clear Quantity Field
+                document.getElementById('se-amount').value = '';
+            } else {
+                if(res.needsOverride) {
+                    let reason = await customPrompt(res.message + "\n\nAdmin Override Reason:", "Override Required");
+                    if(reason) {
+                        billData.overrideReason = reason;
+                        const retryRes = await apiFetch('/api/bills', 'POST', [billData]);
+                        if(retryRes.success) {
+                            customAlert("Override applied & Bill saved.", "Success");
+                            document.getElementById('se-billNo').value = parseInt(billData.billNo) + 1; 
+                            document.getElementById('se-vehicleNo').value = ''; 
+                            document.getElementById('se-qnty').value = ''; 
+                            document.getElementById('se-amount').value = '';
+                        }
+                        else customAlert(retryRes.message, "Error");
+                    }
+                } else customAlert(res.message, "Error");
+            }
+        }
+    </script>
+</body>
+</html>

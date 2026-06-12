@@ -1,20 +1,34 @@
+let currentGenerateMode = 'date'; // 'date' or 'bill'
+
 async function initInvoices() {
     await checkLeftovers();
     await loadInvoices();
 }
 
+function setGenerateMode(mode) {
+    currentGenerateMode = mode;
+    document.getElementById('dateInputs').style.display = mode === 'date' ? 'flex' : 'none';
+    document.getElementById('billInputs').style.display = mode === 'bill' ? 'flex' : 'none';
+    
+    // UI Tab styling
+    document.getElementById('tabDate').className = mode === 'date' ? 'btn-primary' : 'btn-outline';
+    document.getElementById('tabBill').className = mode === 'bill' ? 'btn-primary' : 'btn-outline';
+}
+
 async function checkLeftovers() {
     const res = await apiFetch('/api/invoices?action=check_leftovers');
     const alertBox = document.getElementById('leftoverAlert');
+    
     if (res.leftoverCount > 0) {
-        alertBox.style.display = 'block';
-        alertBox.innerHTML = `<strong>⚠️ Leftover Warning:</strong> You have <b>${res.leftoverCount}</b> older bills not attached to any invoice. Please generate an invoice to clear them.`;
-        alertBox.style.padding = "10px";
-        alertBox.style.backgroundColor = "#fff1f2";
-        alertBox.style.color = "#be123c";
-        alertBox.style.border = "1px solid #fecdd3";
-        alertBox.style.borderRadius = "6px";
-        alertBox.style.marginBottom = "15px";
+        alertBox.style.display = 'flex';
+        let dateStr = res.oldestDate ? new Date(res.oldestDate).toLocaleDateString() : 'N/A';
+        alertBox.innerHTML = `
+            <i data-lucide="bell-ring" style="width: 24px; height: 24px;"></i> 
+            <div>
+                <strong>⚠️ Missing Bills Warning:</strong> You have <b>${res.leftoverCount}</b> bills not attached to any invoice. <br>
+                <span style="font-size: 0.85rem; opacity: 0.9;">The oldest missed bill is <b>Bill No ${res.oldestBill}</b> from ${dateStr}.</span>
+            </div>`;
+        if(window.lucide) lucide.createIcons();
     } else {
         alertBox.style.display = 'none';
     }
@@ -26,11 +40,9 @@ async function loadInvoices() {
     tbody.innerHTML = '';
     
     invoices.forEach(inv => {
-        let statusColor = inv.status === 'PAID' ? '#10b981' : (inv.status === 'PARTIAL' ? '#f59e0b' : '#ef4444');
-        
-        // Format dates cleanly
-        let sDate = inv.start_date ? new Date(inv.start_date).toLocaleDateString() : 'N/A';
-        let eDate = inv.end_date ? new Date(inv.end_date).toLocaleDateString() : 'N/A';
+        let badgeClass = inv.status === 'PAID' ? 'badge-success' : (inv.status === 'PARTIAL' ? 'badge-warning' : 'badge-danger');
+        let sDate = inv.start_date ? new Date(inv.start_date).toLocaleDateString() : 'Multi-Date';
+        let eDate = inv.end_date ? new Date(inv.end_date).toLocaleDateString() : '(By Bill No)';
 
         tbody.innerHTML += `
             <tr>
@@ -38,48 +50,53 @@ async function loadInvoices() {
                 <td>${sDate} to ${eDate}</td>
                 <td>₹${parseFloat(inv.total_amount).toFixed(2)}</td>
                 <td>₹${parseFloat(inv.paid_amount).toFixed(2)}</td>
-                <td><span style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">${inv.status}</span></td>
+                <td><span class="badge ${badgeClass}">${inv.status}</span></td>
                 <td>
-                    <button class="btn-primary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="editInvoice('${inv.invoice_no}', ${inv.paid_amount}, ${inv.total_amount})">✏️ Update Payment</button>
+                    <button class="btn-outline" style="padding: 6px 12px; font-size: 0.85rem;" onclick="editInvoice('${inv.invoice_no}', ${inv.paid_amount}, ${inv.total_amount})">
+                        <i data-lucide="wallet"></i> Collect
+                    </button>
                 </td>
             </tr>
         `;
     });
+    if(window.lucide) lucide.createIcons();
 }
 
 async function generateInvoice() {
-    const startDate = document.getElementById('invStartDate').value;
-    const endDate = document.getElementById('invEndDate').value;
+    let startVal, endVal;
     
-    if (!startDate || !endDate) return alert("Please select both start and end dates to generate an invoice.");
+    if (currentGenerateMode === 'date') {
+        startVal = document.getElementById('invStartDate').value;
+        endVal = document.getElementById('invEndDate').value;
+    } else {
+        startVal = document.getElementById('invStartBill').value;
+        endVal = document.getElementById('invEndBill').value;
+    }
+    
+    if (!startVal || !endVal) return customAlert("Please fill in both start and end fields.", "Missing Data");
     
     const btn = document.getElementById('generateBtn');
-    btn.innerText = "Generating...";
+    btn.innerHTML = `<i data-lucide="loader"></i> Generating...`;
     
-    const res = await apiFetch('/api/invoices', 'POST', { startDate, endDate });
+    const res = await apiFetch('/api/invoices', 'POST', { generateBy: currentGenerateMode, startVal, endVal });
     
     if (res.success) {
-        alert(`Success! Generated Invoice ${res.invoiceNo} for ₹${res.totalAmount}`);
-        document.getElementById('invStartDate').value = '';
-        document.getElementById('invEndDate').value = '';
+        await customAlert(`Successfully generated Invoice ${res.invoiceNo} for ₹${res.totalAmount}`, "Success!");
         initInvoices(); // Refresh the list
     } else {
-        alert(res.message);
+        customAlert(res.message, "Failed");
     }
-    btn.innerText = "+ Generate Invoice";
+    btn.innerHTML = `<i data-lucide="file-check-2"></i> Generate Invoice`;
+    if(window.lucide) lucide.createIcons();
 }
 
 async function editInvoice(invoiceNo, currentPaid, totalAmount) {
-    const newPaidStr = prompt(
-        `Update Collection for ${invoiceNo}\n\nTotal Bill Amount: ₹${totalAmount}\nCurrently Paid: ₹${currentPaid}\n\nEnter the new TOTAL paid amount:`, 
-        currentPaid
-    );
+    const newPaidStr = await customPrompt(`Total Bill Amount: ₹${totalAmount}\nCurrently Collected: ₹${currentPaid}\n\nEnter the NEW TOTAL amount collected:`, `Update ${invoiceNo}`);
     
-    if (newPaidStr === null) return; // User cancelled
+    if (!newPaidStr) return; // Cancelled
     
     const newPaid = parseFloat(newPaidStr) || 0;
     
-    // Auto-calculate the status
     let newStatus = 'PENDING';
     if (newPaid >= totalAmount) newStatus = 'PAID';
     else if (newPaid > 0) newStatus = 'PARTIAL';
@@ -87,8 +104,8 @@ async function editInvoice(invoiceNo, currentPaid, totalAmount) {
     const res = await apiFetch('/api/invoices', 'PATCH', { invoiceNo, status: newStatus, paidAmount: newPaid });
     
     if (res.success) {
-        initInvoices(); // Refresh the grid
+        initInvoices(); 
     } else {
-        alert("Failed to update invoice.");
+        customAlert("Failed to update invoice.", "Error");
     }
 }

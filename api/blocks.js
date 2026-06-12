@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-const pool = new Pool({ connectionString: "postgresql://neondb_owner:npg_WeBqunU56xPX@ep-lucky-cloud-aozli1uh.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require" });
+const pool = new Pool({ connectionString: "postgresql://neondb_owner:npg_ubm0XN4yKWfn@ep-plain-band-ap854c2t-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require" });
 
 module.exports = async function handler(req, res) {
     const userRole = req.headers['x-user-role'];

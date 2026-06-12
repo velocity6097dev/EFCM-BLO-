@@ -1,12 +1,72 @@
-header { background: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #fdb813; }
-.sidebar { width: 200px; background: white; height: calc(100vh - 70px); position: fixed; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
-.sidebar button { background: none; color: var(--text); text-align: left; border: 1px solid #ccc; }
-.sidebar button:hover { background: var(--primary); color: white; }
-.content { margin-left: 240px; padding: 2rem; }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-.table-wrapper { overflow-x: auto; background: white; padding: 1rem; border-radius: 8px; margin-top: 1rem; }
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 0.5rem; border-bottom: 1px solid #eee; text-align: left; }
-.badge { background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; margin-left: 10px; }
-.card { background: white; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+/* ==========================================================================
+   APP SHELL LAYOUT (Mobile & PC Compatible)
+   ========================================================================== */
+body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+header { 
+    background: white; padding: 1rem 2.5rem; display: flex; 
+    justify-content: space-between; align-items: center; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05); position: relative; 
+    z-index: 50; border-top: 4px solid var(--accent); flex-shrink: 0;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand h1 { font-size: 1.4rem; margin: 0; color: var(--primary); font-weight: 800; }
+
+.mobile-toggle { display: none; background: none; border: none; color: var(--primary); padding: 0.5rem; cursor: pointer; }
+
+.app-body { display: flex; flex-grow: 1; overflow: hidden; position: relative; }
+
+/* ==========================================================================
+   SIDEBAR (With Mobile Slide-in Animation)
+   ========================================================================== */
+.sidebar { 
+    width: 260px; background: white; height: 100%; padding: 1.5rem 1rem; 
+    display: flex; flex-direction: column; gap: 0.5rem; 
+    box-shadow: 4px 0 15px rgba(0,0,0,0.03); z-index: 40; flex-shrink: 0; overflow-y: auto;
+    transition: left 0.3s ease;
+}
+
+/* Changed from button to 'a' tag for real multi-page linking */
+.sidebar a { 
+    background: transparent; color: var(--text-muted); text-decoration: none;
+    border-radius: var(--radius-md); padding: 0.9rem 1.2rem; font-weight: 500; 
+    transition: all 0.2s ease; border-left: 3px solid transparent; 
+    display: flex; align-items: center; gap: 12px; 
+}
+.sidebar a:hover { background: #f8fafc; color: var(--primary); transform: translateX(4px); }
+.sidebar a.active { background: #f0f7ff; color: var(--primary); border-left: 3px solid var(--primary); font-weight: 600; }
+
+.lucide { width: 20px; height: 20px; stroke-width: 2px; }
+
+/* ==========================================================================
+   MAIN CONTENT AREA
+   ========================================================================== */
+.content { flex-grow: 1; padding: 2.5rem; overflow-y: auto; height: 100%; background: var(--bg-body); }
+button:active:not(:disabled) { transform: scale(0.96); transition: transform 0.1s; }
+
+/* ==========================================================================
+   MOBILE RESPONSIVE RULES (Phones & Tablets)
+   ========================================================================== */
+@media (max-width: 768px) {
+    header { padding: 1rem; }
+    .brand h1 { font-size: 1.1rem; }
+    .mobile-toggle { display: block; }
+    
+    /* Hide sidebar off-screen by default on mobile */
+    .sidebar { position: absolute; left: -280px; top: 0; box-shadow: 10px 0 20px rgba(0,0,0,0.1); }
+    .sidebar.open { left: 0; } /* Class added by JS when hamburger is clicked */
+    
+    .content { padding: 1.5rem 1rem; margin-left: 0; width: 100%; }
+    
+    /* Stack form inputs vertically on mobile */
+    .card.flex-row { flex-direction: column; align-items: stretch !important; }
+}
+
+/* Modals */
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 9999; opacity: 0; transition: opacity 0.3s ease; }
+.modal-overlay.show { display: flex; opacity: 1; }
+.modal-box { background: white; padding: 2rem; border-radius: var(--radius-lg); width: 90%; max-width: 420px; transform: scale(0.90); transition: transform 0.3s; }
+.modal-overlay.show .modal-box { transform: scale(1); }
+.modal-header h3 { margin: 0 0 10px 0; display: flex; align-items: center; gap: 8px;}
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
